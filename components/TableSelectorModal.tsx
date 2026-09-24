@@ -336,14 +336,14 @@ export default function TableSelectorModal({
                       key={tbl}
                       type="button"
                       onClick={() => handleChooseTable(tbl)}
-                      className={`relative flex flex-col text-left p-3.5 rounded-2xl border transition-all text-xs group ${
-                        running
-                          ? isCurrent
-                            ? "bg-amber-500/10 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/50 shadow-md"
-                            : "bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 border-amber-300/80 dark:border-amber-700/60 shadow-xs"
-                          : isCurrent
-                          ? "bg-slate-100 dark:bg-slate-800 border-slate-400 dark:border-slate-600 ring-2 ring-slate-400/50 shadow-md"
-                          : "bg-slate-50/80 dark:bg-slate-800/40 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/30 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition-colors"
+                      className={`relative flex flex-col text-left p-3.5 rounded-2xl transition-all text-xs group ${
+                        isCurrent
+                          ? running
+                            ? "bg-amber-500/10 dark:bg-amber-950/40 border-2 border-amber-500 ring-2 ring-amber-500/40 shadow-md"
+                            : "bg-emerald-500/5 dark:bg-emerald-950/20 border-2 border-amber-500 ring-2 ring-amber-500/40 shadow-md"
+                          : running
+                          ? "bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 border-2 border-amber-300/70 dark:border-amber-700/60 shadow-xs"
+                          : "bg-slate-50/80 dark:bg-slate-800/40 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/30 border-2 border-slate-200 dark:border-slate-800 hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors"
                       }`}
                     >
                       {/* Top Row: Table name + status pill */}
@@ -393,13 +393,6 @@ export default function TableSelectorModal({
                       ) : (
                         <div className="py-2 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                           Available for seating
-                        </div>
-                      )}
-
-                      {/* Active indicator badge */}
-                      {isCurrent && (
-                        <div className="absolute top-2 right-2 flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white shadow-xs">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
                       )}
                     </button>

@@ -70,7 +70,7 @@ interface Props {
   settings: CafeSettings;
   activeRunningOrder?: Order | null;
   onSelectRunningOrder?: (order: Order | null) => void;
-  onRefreshOrders?: () => void;
+  onRefreshOrders?: (orderId?: string) => void;
   selectedTable?: string;
   onSelectTable?: (table: string) => void;
   onToggleCollapse?: () => void;
@@ -285,12 +285,21 @@ export default function Cart({
     setNotes("");
     setShowNumpad(false);
 
+    // Immediately load this newly created running order into cart
+    if (onSelectRunningOrder) {
+      onSelectRunningOrder(result.order);
+    }
+    if (onSelectTable && orderType === "DINE_IN" && tableNumber) {
+      onSelectTable(tableNumber);
+    }
+    if (onRefreshOrders) {
+      onRefreshOrders(result.order.id);
+    }
+
     // Open KOT print dialog so kitchen slip is printed
     setPrintedOrder(result.order);
     setPrintedKOT(result.kot);
     setShowPrintModal(true);
-
-    if (onRefreshOrders) onRefreshOrders();
   };
 
   // ---------------- ACTION 2: INCREMENTAL KOT (ADD MORE ITEMS TO RUNNING TAB) ----------------

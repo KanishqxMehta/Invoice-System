@@ -58,7 +58,7 @@ export default function PosPage() {
   const [isCartCollapsed, setIsCartCollapsed] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
-  const loadData = () => {
+  const loadData = (targetOrderId?: unknown) => {
     setMenuItems(getMenuItems());
     setSettings(getSettings());
     const openOrders = getRunningOrders();
@@ -70,11 +70,23 @@ export default function PosPage() {
       setSelectedTable(currentTables[0]);
     }
 
-    // If active running order was updated or settled, refresh its reference
-    if (activeRunningOrder) {
-      const refreshed = openOrders.find((o) => o.id === activeRunningOrder.id);
-      setActiveRunningOrder(refreshed || null);
+    if (typeof targetOrderId === "string" && targetOrderId) {
+      const target = openOrders.find((o) => o.id === targetOrderId);
+      if (target) {
+        setActiveRunningOrder(target);
+        if (target.tableNumber) {
+          setSelectedTable(target.tableNumber);
+        }
+        return;
+      }
     }
+
+    // If active running order was updated or settled, refresh its reference safely
+    setActiveRunningOrder((prev) => {
+      if (!prev) return null;
+      const refreshed = openOrders.find((o) => o.id === prev.id);
+      return refreshed || null;
+    });
   };
 
   useEffect(() => {
@@ -161,7 +173,8 @@ export default function PosPage() {
   const handleSelectTable = (tbl: string) => {
     setSelectedTable(tbl);
     setOrderType("DINE_IN");
-    const existing = runningOrders.find((o) => o.tableNumber === tbl);
+    const openOrders = getRunningOrders();
+    const existing = openOrders.find((o) => o.tableNumber === tbl);
     if (existing) {
       setActiveRunningOrder(existing);
     } else {
