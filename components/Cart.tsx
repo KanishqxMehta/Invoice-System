@@ -564,8 +564,9 @@ export default function Cart({
         </div>
       </div>
 
-      {/* ACTIVE RUNNING ORDER BANNER */}
-      {activeRunningOrder && (
+      {/* PERMANENT TOP CONTEXT BANNER (Consistent across filled, empty, and takeaway) */}
+      {activeRunningOrder ? (
+        // FILLED / OCCUPIED TABLE WITH ACTIVE RUNNING TAB
         <div className="bg-amber-50/90 dark:bg-amber-950/50 border-b border-amber-200/80 dark:border-amber-800/70 p-2.5 px-3 flex items-center justify-between gap-2 text-xs flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
@@ -604,6 +605,106 @@ export default function Cart({
             </button>
           </div>
         </div>
+      ) : orderType === "DINE_IN" ? (
+        // EMPTY / FRESH DINE-IN TABLE
+        <div className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 p-2.5 px-3 flex items-center justify-between gap-2 text-xs flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+              <Utensils className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-900 dark:text-white truncate font-mono">
+                  {tableNumber.toLowerCase().startsWith("table") ? tableNumber : `Table ${tableNumber}`}
+                </span>
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-full">
+                  Available
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                Dine-In • Fresh Order
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {onOpenTableSelector ? (
+              <button
+                type="button"
+                onClick={onOpenTableSelector}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold text-xs shadow-xs transition-all border border-amber-500"
+                title="Switch to another table or view 2D floor grid (T or F2)"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Switch Table</span>
+                <ChevronDown className="w-3 h-3 opacity-80" />
+              </button>
+            ) : (
+              <select
+                suppressHydrationWarning
+                value={availableTables.includes(tableNumber) ? tableNumber : "__CUSTOM__"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val !== "__CUSTOM__") {
+                    setTableNumber(val);
+                    if (onSelectTable) onSelectTable(val);
+                  }
+                }}
+                className="text-xs font-bold px-2 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-amber-700 dark:text-amber-300 font-mono"
+              >
+                {availableTables.map((t) => (
+                  <option key={t} value={t}>
+                    {t.toLowerCase().startsWith("table") ? t : `Table ${t}`}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {onOpenTableManager && (
+              <button
+                type="button"
+                onClick={onOpenTableManager}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs border border-slate-200 dark:border-slate-700 transition-colors"
+                title="Configure dining tables"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Setup</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        // TAKEAWAY / COUNTER ORDER
+        <div className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 p-2.5 px-3 flex items-center justify-between gap-2 text-xs flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+              <ShoppingBag className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-bold text-slate-900 dark:text-white truncate block">
+                Takeaway / Counter
+              </span>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                Direct counter pickup • No table assigned
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {onOpenTableSelector && (
+              <button
+                type="button"
+                onClick={onOpenTableSelector}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-800 dark:text-slate-200 font-bold text-xs shadow-xs transition-all border border-slate-200 dark:border-slate-700"
+                title="Assign order to a Dine-In table (T or F2)"
+              >
+                <Utensils className="w-3.5 h-3.5 text-amber-600" />
+                <span>Switch to Table</span>
+                <ChevronDown className="w-3 h-3 opacity-80" />
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Customer Drawer Trigger */}
@@ -625,7 +726,7 @@ export default function Cart({
       </div>
 
       {/* Order Mode Switcher */}
-      <div className="px-2.5 pt-1 space-y-1 flex-shrink-0">
+      <div className="px-2.5 pt-1 flex-shrink-0">
         <div className="flex bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
           {/* Dine-In */}
           <button
@@ -655,65 +756,6 @@ export default function Cart({
             <span>Takeaway</span>
           </button>
         </div>
-
-        {/* Table Number for Dine-In */}
-        {orderType === "DINE_IN" && !activeRunningOrder && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Table:</span>
-            <div className="flex-1 flex items-center gap-1.5">
-              {onOpenTableSelector ? (
-                <button
-                  type="button"
-                  onClick={onOpenTableSelector}
-                  className="flex-1 flex items-center justify-between text-xs font-bold px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-300 dark:border-slate-700 text-amber-700 dark:text-amber-300 transition-colors font-mono"
-                  title="Click to view all tables and switch (T or F2)"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Utensils className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{tableNumber.toLowerCase().startsWith("table") ? tableNumber : `Table ${tableNumber}`}</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Change ▾</span>
-                </button>
-              ) : (
-                <select
-                  suppressHydrationWarning
-                  value={availableTables.includes(tableNumber) ? tableNumber : "__CUSTOM__"}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val !== "__CUSTOM__") {
-                      setTableNumber(val);
-                      if (onSelectTable) onSelectTable(val);
-                    }
-                  }}
-                  className="flex-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-amber-700 dark:text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
-                >
-                  {availableTables.map((t) => (
-                    <option key={t} value={t}>
-                      {t.toLowerCase().startsWith("table") ? t : `Table ${t}`}
-                    </option>
-                  ))}
-                  {!availableTables.includes(tableNumber) && (
-                    <option value="__CUSTOM__">
-                      {tableNumber.toLowerCase().startsWith("table") ? tableNumber : `Table ${tableNumber}`} (Custom)
-                    </option>
-                  )}
-                </select>
-              )}
-
-              {onOpenTableManager && (
-                <button
-                  type="button"
-                  onClick={onOpenTableManager}
-                  className="px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-amber-600 text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-700 flex items-center gap-1"
-                  title="Configure dining tables"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline text-[10px]">Setup</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Cart Items List - Independent Scroll */}
