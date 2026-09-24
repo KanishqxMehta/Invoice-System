@@ -53,6 +53,9 @@ import {
   X,
   Check,
   ChevronRight,
+  ChevronDown,
+  ArrowLeftRight,
+  RotateCcw,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -475,7 +478,7 @@ export default function Cart({
     cancelRunningOrder(activeRunningOrder.id);
     if (onSelectRunningOrder) onSelectRunningOrder(null);
     if (onRefreshOrders) onRefreshOrders();
-    setToastMessage("Active tab voided.");
+    setToastMessage("Table freed & tab cleared.");
     setTimeout(() => setToastMessage(null), 3000);
     setShowVoidConfirm(false);
   };
@@ -563,36 +566,41 @@ export default function Cart({
 
       {/* ACTIVE RUNNING ORDER BANNER */}
       {activeRunningOrder && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 p-2 px-3 flex items-center justify-between text-xs flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <div>
-              <span className="font-bold text-amber-900 dark:text-amber-300">
+        <div className="bg-amber-50/90 dark:bg-amber-950/50 border-b border-amber-200/80 dark:border-amber-800/70 p-2.5 px-3 flex items-center justify-between gap-2 text-xs flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+            <div className="min-w-0">
+              <span className="font-bold text-amber-950 dark:text-amber-200 truncate block">
                 Table {activeRunningOrder.tableNumber || "Tab"} • #{activeRunningOrder.orderNumber}
               </span>
               <div className="text-[10px] text-slate-600 dark:text-slate-400 font-mono">
-                Running Total: <strong className="text-slate-900 dark:text-slate-200">{formatINR(activeRunningOrder.finalTotal)}</strong> (Unsettled)
+                Running: <strong className="text-slate-900 dark:text-slate-200">{formatINR(activeRunningOrder.finalTotal)}</strong> (Unsettled)
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {onOpenTableSelector && (
               <button
                 type="button"
                 onClick={onOpenTableSelector}
-                className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 hover:underline px-2 py-0.5 rounded-lg bg-amber-200/50 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700/60"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold text-xs shadow-xs transition-all border border-amber-500"
                 title="Switch to another table or tab (T or F2)"
               >
-                Switch Table ▾
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Switch Table</span>
+                <ChevronDown className="w-3 h-3 opacity-80" />
               </button>
             )}
+
             <button
               type="button"
               onClick={handleVoidRunningTab}
-              className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 underline"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 active:scale-95 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 font-bold text-xs transition-all shadow-xs"
+              title="Release and free this table (cancel active tab)"
             >
-              Void Tab
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Free Table</span>
             </button>
           </div>
         </div>
@@ -1200,15 +1208,15 @@ export default function Cart({
         />
       )}
 
-      {/* Custom Confirmation Modal for Voiding Table Tab */}
+      {/* Custom Confirmation Modal for Freeing Table Tab */}
       <ConfirmModal
         isOpen={showVoidConfirm}
         onClose={() => setShowVoidConfirm(false)}
         onConfirm={confirmVoidRunningTab}
-        title="Void Active Table Tab"
-        description={`Are you sure you want to void the tab for Table ${activeRunningOrder?.tableNumber || "Tab"} (#${activeRunningOrder?.orderNumber})? Any unsaved orders or pending items will be cleared.`}
-        confirmText="Yes, Void Tab"
-        cancelText="Keep Tab Active"
+        title="Free Table & Cancel Tab"
+        description={`Are you sure you want to release Table ${activeRunningOrder?.tableNumber || "Tab"} (#${activeRunningOrder?.orderNumber})? This will clear the active tab and mark the table as available.`}
+        confirmText="Yes, Free Table"
+        cancelText="Keep Table Occupied"
         variant="danger"
       />
     </div>
