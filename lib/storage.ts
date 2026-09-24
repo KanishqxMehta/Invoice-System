@@ -941,6 +941,96 @@ export function cancelRunningOrder(orderId: string): boolean {
   return true;
 }
 
+// Transfer/shift an active running order from one table to another
+export function transferRunningOrderTable(orderId: string, newTable: string): Order | null {
+  const orders = getAllOrdersRaw();
+  const kots = getAllKOTTicketsRaw();
+  const orderIdx = orders.findIndex((o) => o.id === orderId);
+  if (orderIdx < 0) return null;
+
+  const order = orders[orderIdx];
+  const updatedOrder: Order = {
+    ...order,
+    tableNumber: newTable,
+    orderType: "DINE_IN",
+  };
+  orders[orderIdx] = updatedOrder;
+
+  // Also update tableNumber on any KOT tickets associated with this order
+  const updatedKots = kots.map((k) =>
+    k.orderId === orderId ? { ...k, tableNumber: newTable } : k
+  );
+
+  if (!isClient()) {
+    memoryState.orders = orders;
+    memoryState.kots = updatedKots;
+  } else {
+    setItem(KEYS.ORDERS, orders);
+    setItem(KEYS.KOTS, updatedKots);
+  }
+
+  return updatedOrder;
+}
+
+// Update quantity or remove an already-sent item in an active running order
+export function updateRunningOrderItemQuantity(
+  orderId: string,
+  itemIndex: number,
+  delta: number,
+  taxRatePercent: number = 5
+): Order | null {
+  const orders = getAllOrdersRaw();
+  const orderIdx = orders.findIndex((o) => o.id === orderId);
+  if (orderIdx < 0) return null;
+
+  const order = orders[orderIdx];
+  const items = [...order.items];
+  const item = items[itemIndex];
+  if (!item) return null;
+
+  const newQty = item.quantity + delta;
+  if (newQty <= 0) {
+    items.splice(itemIndex, 1);
+  } else {
+    items[itemIndex] = {
+      ...item,
+      quantity: newQty,
+      subtotal: item.unitPrice * newQty,
+    };
+  }
+
+  const subtotal = items.reduce((s, i) => s + i.subtotal, 0);
+  const taxAmount = (subtotal * taxRatePercent) / 100;
+  const cgst = taxAmount / 2;
+  const sgst = taxAmount / 2;
+  const finalTotal = subtotal + taxAmount;
+
+  const updatedOrder: Order = {
+    ...order,
+    items,
+    subtotal,
+    cgst,
+    sgst,
+    taxAmount,
+    finalTotal,
+  };
+
+  orders[orderIdx] = updatedOrder;
+  if (!isClient()) memoryState.orders = orders;
+  else setItem(KEYS.ORDERS, orders);
+
+  return updatedOrder;
+}
+
+// Remove an already-sent item from an active running order
+export function removeRunningOrderItem(
+  orderId: string,
+  itemIndex: number,
+  taxRatePercent: number = 5
+): Order | null {
+  return updateRunningOrderItemQuantity(orderId, itemIndex, -999999, taxRatePercent);
+}
+
 // ---------------- DEDICATED CUSTOM INVOICES ----------------
 export function getAllCustomInvoicesRaw(): CustomInvoice[] {
   if (!isClient()) return memoryState.invoices;
