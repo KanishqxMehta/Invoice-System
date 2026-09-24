@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* 80mm Thermal Receipt On-Screen Styling (Sharp Corners Only) */
+.thermal-80mm {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  font-family: "Courier New", Courier, monospace, monospace;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #000000;
+  border-radius: 0 !important;
+  box-sizing: border-box;
+}
+
+/* Thermal Print Stylesheet */
+@media print {
+  /* Hide all non-printable UI chrome */
+  body * {
+    visibility: hidden;
+  }
+  
+  .no-print,
+  nav,
+  header,
+  aside,
+  button,
+  footer {
+    display: none !important;
+  }
+
+  /* Only print container is visible */
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible;
+  }
+
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* 80mm Thermal Receipt Spec */
+  .thermal-80mm {
+    width: 76mm !important;
+    max-width: 76mm !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    padding: 4mm !important;
+    color: #000000 !important;
+  }
+
+  /* 58mm KOT Spec */
+  .thermal-58mm {
+    width: 54mm !important;
+    max-width: 54mm !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    padding: 2mm !important;
+    color: #000000 !important;
+  }
+
+  .print-cut-line {
+    border-top: 1px dashed #000000 !important;
+    margin: 6px 0 !important;
+  }
+}
+
+/* Torn receipt edge effect for digital bill */
+.torn-edge {
+  position: relative;
+}
+.torn-edge::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: radial-gradient(circle, transparent, transparent 50%, #ffffff 50%, #ffffff 100%);
+  background-size: 16px 20px;
+}
+
+/* Pulse animation for high priority KDS tickets */
+@keyframes urgentPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.ticket-urgent {
+  animation: urgentPulse 2s infinite ease-in-out;
+}
+
+/* POS Menu Items Container Query & Adaptive Grid */
+.pos-menu-scroll-container {
+  container-type: inline-size;
+  container-name: posmenu;
+}
+
+.pos-adaptive-grid {
+  display: grid;
+  gap: 0.75rem;
+  /* Default: exactly 3 items in a row */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* When width is less, maintain minimum 2 items in row */
+@container posmenu (max-width: 680px) {
+  .pos-adaptive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Default / spacious container width: exactly 3 items in row */
+@container posmenu (min-width: 681px) {
+  .pos-adaptive-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+

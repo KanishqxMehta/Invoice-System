@@ -1,0 +1,167 @@
+// Prisma schema for Cafe POS, KOT & Invoicing System
+// Configured for standard PostgreSQL with zero cloud lock-in.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DiscountType {
+  PERCENT
+  FLAT
+}
+
+enum PaymentMethod {
+  CASH
+  UPI_QR
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum KOTStatus {
+  ACTIVE
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  phone         String         @unique
+  name          String
+  email         String?
+  pointsBalance Int            @default(0)
+  totalSpent    Float          @default(0.0)
+  visitCount    Int            @default(1)
+  orders        Order[]
+  pointsLedger  PointsLedger[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([phone])
+}
+
+model PointsLedger {
+  id           String   @id @default(cuid())
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderId      String?
+  order        Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  pointsChange Int      // positive for earned, negative for redeemed
+  reason       String   // e.g. "Earned on Order #1024", "Redeemed on Order #1025"
+  createdAt    DateTime @default(now())
+
+  @@index([customerId])
+}
+
+model Coupon {
+  id           String       @id @default(cuid())
+  code         String       @unique
+  discountType DiscountType @default(PERCENT)
+  value        Float        // Percentage or Flat INR value
+  minOrder     Float        @default(0.0)
+  maxDiscount  Float?       // Cap for percentage discounts in INR
+  expiryDate   DateTime?
+  isActive     Boolean      @default(true)
+  timesUsed    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([code])
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  category    String   // Espresso, Cold Brews, Teas, Pastries, Sandwiches, Add-ons
+  price       Float    // in INR (₹)
+  isVeg       Boolean  @default(true)
+  description String?
+  image       String?
+  isAvailable Boolean  @default(true)
+  modifiers   Json?    // Available modifiers and pricing e.g. [{ name: "Oat Milk", price: 45 }]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  orderNumber    String         @unique // e.g. "ORD-1042"
+  kotNumber      String         // e.g. "KOT-89"
+  customerId     String?
+  customer       Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName   String?
+  customerPhone  String?
+  subtotal       Float          // Item total in INR
+  taxAmount      Float          // 5% GST (2.5% CGST + 2.5% SGST)
+  discountAmount Float          @default(0.0)
+  couponCode     String?
+  pointsRedeemed Int            @default(0)
+  pointsDiscount Float          @default(0.0)
+  finalTotal     Float          // Final payable in INR
+  pointsEarned   Int            @default(0)
+  paymentMethod  PaymentMethod  @default(UPI_QR)
+  paymentStatus  PaymentStatus  @default(PAID)
+  orderType      OrderType      @default(DINE_IN)
+  tableNumber    String?
+  notes          String?
+  items          OrderItem[]
+  kotTickets     KOTTicket[]
+  pointsLedger   PointsLedger[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([orderNumber])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String?
+  name       String
+  quantity   Int
+  unitPrice  Float    // Base price in INR
+  modifiers  Json?    // [{ name: "Extra Shot", price: 40 }]
+  subtotal   Float    // (unitPrice + modifiers) * quantity
+  notes      String?
+  isVeg      Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model KOTTicket {
+  id               String    @id @default(cuid())
+  kotNumber        String    // e.g. "KOT-89"
+  orderId          String
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status           KOTStatus @default(ACTIVE)
+  preparationNotes String?
+  items            Json      // Snapshot of items and modifiers for kitchen display & print
+  createdAt        DateTime  @default(now())
+  readyAt          DateTime?
+  completedAt      DateTime?
+
+  @@index([orderId])
+  @@index([status])
+}
