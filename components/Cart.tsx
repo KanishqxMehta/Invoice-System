@@ -18,6 +18,8 @@ import {
   addItemsToRunningOrder,
   settleRunningOrder,
   cancelRunningOrder,
+  updateRunningOrderItemQuantity,
+  removeRunningOrderItem,
   getTables,
   DEFAULT_TABLES,
 } from "@/lib/storage";
@@ -77,6 +79,7 @@ interface Props {
   orderType?: OrderType;
   onSelectOrderType?: (type: OrderType) => void;
   onOpenTableSelector?: () => void;
+  onTransferTable?: (orderId: string, newTable: string) => void;
 }
 
 export default function Cart({
@@ -97,6 +100,7 @@ export default function Cart({
   orderType: propOrderType,
   onSelectOrderType,
   onOpenTableSelector,
+  onTransferTable,
 }: Props) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -483,6 +487,43 @@ export default function Cart({
     setShowVoidConfirm(false);
   };
 
+  // Edit quantity of items already marked for kitchen (Pay Later Tab)
+  const handleUpdateSentItemQty = (itemIndex: number, delta: number) => {
+    if (!activeRunningOrder) return;
+    const updated = updateRunningOrderItemQuantity(
+      activeRunningOrder.id,
+      itemIndex,
+      delta,
+      settings.taxRatePercent
+    );
+    if (updated) {
+      if (onSelectRunningOrder) onSelectRunningOrder(updated);
+      if (onRefreshOrders) onRefreshOrders();
+      setToastMessage(
+        delta > 0
+          ? "Item quantity increased on active tab."
+          : "Item quantity reduced on active tab."
+      );
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  // Remove an item already marked for kitchen (Pay Later Tab)
+  const handleRemoveSentItem = (itemIndex: number) => {
+    if (!activeRunningOrder) return;
+    const updated = removeRunningOrderItem(
+      activeRunningOrder.id,
+      itemIndex,
+      settings.taxRatePercent
+    );
+    if (updated) {
+      if (onSelectRunningOrder) onSelectRunningOrder(updated);
+      if (onRefreshOrders) onRefreshOrders();
+      setToastMessage("Item removed from active tab.");
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
   const cashChange = cashTendered
     ? Math.max(0, parseFloat(cashTendered) - calculation.finalTotal)
     : 0;
@@ -775,19 +816,19 @@ export default function Cart({
               {activeRunningOrder.items.map((sentItem, sentIdx) => (
                 <div
                   key={sentIdx}
-                  className="flex items-center justify-between text-xs py-1 border-b border-slate-200/60 dark:border-slate-800/40 last:border-0"
+                  className="flex items-center justify-between text-xs py-1.5 border-b border-slate-200/60 dark:border-slate-800/40 last:border-0 group"
                 >
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1 pr-2">
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                         sentItem.isVeg ? "bg-emerald-500" : "bg-red-500"
                       }`}
                     />
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                       {sentItem.name}
                     </span>
                     {sentItem.portionName && (
-                      <span className="text-[9px] px-1 py-0.2 rounded font-mono bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-transparent">
+                      <span className="text-[9px] px-1 py-0.2 rounded font-mono bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-transparent flex-shrink-0">
                         {sentItem.portionName}
                       </span>
                     )}
@@ -795,9 +836,40 @@ export default function Cart({
                       x{sentItem.quantity}
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-300">
-                    {formatINR(sentItem.subtotal)}
-                  </span>
+
+                  {/* Quantity adjustment & delete for sent items */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-300 mr-0.5">
+                      {formatINR(sentItem.subtotal)}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSentItemQty(sentIdx, -1)}
+                      className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-800 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/60 dark:hover:text-rose-400 flex items-center justify-center text-slate-600 dark:text-slate-400 transition-colors"
+                      title={sentItem.quantity > 1 ? "Reduce quantity by 1" : "Remove item from tab"}
+                    >
+                      <Minus className="w-2.5 h-2.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSentItemQty(sentIdx, 1)}
+                      className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-800 hover:bg-emerald-100 hover:text-emerald-600 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-400 flex items-center justify-center text-slate-600 dark:text-slate-400 transition-colors"
+                      title="Add 1 more to tab"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSentItem(sentIdx)}
+                      className="w-5 h-5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center justify-center transition-colors"
+                      title="Remove item from tab"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

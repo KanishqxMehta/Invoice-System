@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   Flame,
   CheckCircle2,
+  ArrowLeftRight,
 } from "lucide-react";
 
 interface TableSelectorModalProps {
@@ -28,6 +29,8 @@ interface TableSelectorModalProps {
   orderType: OrderType;
   onSelectOrderType: (type: OrderType) => void;
   onOpenTableManager?: () => void;
+  activeRunningOrder?: Order | null;
+  onTransferTable?: (orderId: string, newTable: string) => void;
 }
 
 export default function TableSelectorModal({
@@ -41,6 +44,8 @@ export default function TableSelectorModal({
   orderType,
   onSelectOrderType,
   onOpenTableManager,
+  activeRunningOrder = null,
+  onTransferTable,
 }: TableSelectorModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<"ALL" | "OCCUPIED" | "VACANT">("ALL");
@@ -107,13 +112,19 @@ export default function TableSelectorModal({
 
   const handleChooseTable = (tbl: string) => {
     onSelectOrderType("DINE_IN");
-    onSelectTable(tbl);
 
     const existingOrder = runningOrdersByTable.get(tbl);
     if (existingOrder) {
+      onSelectTable(tbl);
       onSelectRunningOrder(existingOrder);
     } else {
-      onSelectRunningOrder(null);
+      // It's a vacant table
+      if (activeRunningOrder && onTransferTable && activeRunningOrder.tableNumber !== tbl) {
+        onTransferTable(activeRunningOrder.id, tbl);
+      } else {
+        onSelectTable(tbl);
+        onSelectRunningOrder(null);
+      }
     }
     onClose();
   };
@@ -258,6 +269,28 @@ export default function TableSelectorModal({
             </div>
           </div>
 
+          {/* RUNNING ORDER SHIFTING BANNER */}
+          {activeRunningOrder && (
+            <div className="px-5 py-2.5 bg-amber-500/10 dark:bg-amber-950/40 border-b border-amber-300/60 dark:border-amber-700/60 flex items-center justify-between gap-3 flex-shrink-0 text-xs text-amber-900 dark:text-amber-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <ArrowLeftRight className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <span className="truncate">
+                  <strong>Moving Table {activeRunningOrder.tableNumber}</strong> (#{activeRunningOrder.orderNumber} • {formatINR(activeRunningOrder.finalTotal)}): Tap any available table below to transfer this order.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectRunningOrder(null);
+                  onSelectOrderType("DINE_IN");
+                }}
+                className="text-[11px] font-bold text-amber-800 dark:text-amber-300 hover:underline flex-shrink-0 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800"
+              >
+                Start Fresh Order Instead
+              </button>
+            </div>
+          )}
+
           {/* QUICK TAKEAWAY / COUNTER OPTION BANNER */}
           <div className="px-5 py-2 bg-amber-50/60 dark:bg-amber-950/20 border-b border-amber-200/60 dark:border-amber-900/30 flex items-center justify-between gap-3 flex-shrink-0">
             <div className="flex items-center gap-2 text-xs text-amber-900 dark:text-amber-300">
@@ -351,6 +384,11 @@ export default function TableSelectorModal({
                               </span>
                             )}
                           </div>
+                        </div>
+                      ) : activeRunningOrder && activeRunningOrder.tableNumber !== tbl ? (
+                        <div className="py-2 text-[11px] text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1">
+                          <ArrowLeftRight className="w-3 h-3 text-amber-600" />
+                          <span>Move Tab Here</span>
                         </div>
                       ) : (
                         <div className="py-2 text-[11px] text-slate-500 dark:text-slate-400 font-medium">

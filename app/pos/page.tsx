@@ -17,6 +17,7 @@ import {
   getSettings,
   getRunningOrders,
   getTables,
+  transferRunningOrderTable,
   DEFAULT_CAFE_SETTINGS,
   DEFAULT_TABLES,
 } from "@/lib/storage";
@@ -165,6 +166,16 @@ export default function PosPage() {
       setActiveRunningOrder(existing);
     } else {
       setActiveRunningOrder(null);
+    }
+  };
+
+  // Transfer / Shift Table for an Active Running Order (Pay Later Tab)
+  const handleTransferTable = (orderId: string, newTable: string) => {
+    const updated = transferRunningOrderTable(orderId, newTable);
+    if (updated) {
+      setSelectedTable(newTable);
+      setActiveRunningOrder(updated);
+      loadData();
     }
   };
 
@@ -533,6 +544,7 @@ export default function PosPage() {
             orderType={orderType}
             onSelectOrderType={setOrderType}
             onOpenTableSelector={() => setShowTableSelector(true)}
+            onTransferTable={handleTransferTable}
           />
         </section>
       </div>
@@ -549,6 +561,8 @@ export default function PosPage() {
         orderType={orderType}
         onSelectOrderType={setOrderType}
         onOpenTableManager={() => setShowTableManager(true)}
+        activeRunningOrder={activeRunningOrder}
+        onTransferTable={handleTransferTable}
       />
 
       {/* Table Manager Modal */}
