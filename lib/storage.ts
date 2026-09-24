@@ -27,6 +27,7 @@ import {
   INITIAL_NOTIFICATIONS,
   INITIAL_INVOICES,
 } from "./mock-db";
+import { getActiveCafeId, getCafeAccountById } from "./auth";
 
 export { DEFAULT_CAFE_SETTINGS, DEFAULT_TABLES };
 
@@ -391,23 +392,41 @@ export function toggleCoupon(id: string): Coupon[] {
 }
 
 // ---------------- ORDERS & KOT ----------------
-export function getOrders(): Order[] {
+export function getAllOrdersRaw(): Order[] {
   if (!isClient()) return memoryState.orders;
   return getItem<Order[]>(KEYS.ORDERS, INITIAL_SAMPLE_ORDERS);
 }
 
+export function getOrders(targetCafeId?: string): Order[] {
+  const all = getAllOrdersRaw();
+  const activeId = targetCafeId !== undefined ? targetCafeId : getActiveCafeId();
+  if (!activeId || activeId === "ALL_CAFES") {
+    return all;
+  }
+  return all.filter((o) => (o.cafeId || "cafe-delhi-flagship") === activeId);
+}
+
 export function getOrderById(id: string): Order | undefined {
-  const orders = getOrders();
+  const orders = getAllOrdersRaw();
   return orders.find((o) => o.id === id || o.orderNumber === id);
 }
 
-export function getKOTTickets(): KOTTicket[] {
+export function getAllKOTTicketsRaw(): KOTTicket[] {
   if (!isClient()) return memoryState.kots;
   return getItem<KOTTicket[]>(KEYS.KOTS, INITIAL_KOT_TICKETS);
 }
 
+export function getKOTTickets(targetCafeId?: string): KOTTicket[] {
+  const all = getAllKOTTicketsRaw();
+  const activeId = targetCafeId !== undefined ? targetCafeId : getActiveCafeId();
+  if (!activeId || activeId === "ALL_CAFES") {
+    return all;
+  }
+  return all.filter((ticket) => (ticket.cafeId || "cafe-delhi-flagship") === activeId);
+}
+
 export function updateKOTStatus(kotId: string, status: KOTStatus): KOTTicket[] {
-  const kots = getKOTTickets();
+  const kots = getAllKOTTicketsRaw();
   const now = new Date().toISOString();
   const updated = kots.map((ticket) => {
     if (ticket.id === kotId || ticket.kotNumber === kotId) {
@@ -427,11 +446,16 @@ export function updateKOTStatus(kotId: string, status: KOTStatus): KOTTicket[] {
   return updated;
 }
 
-export function updateAllKOTStatus(fromStatus: KOTStatus, toStatus: KOTStatus): KOTTicket[] {
-  const kots = getKOTTickets();
+export function updateAllKOTStatus(fromStatus: KOTStatus, toStatus: KOTStatus, targetCafeId?: string): KOTTicket[] {
+  const kots = getAllKOTTicketsRaw();
   const now = new Date().toISOString();
+  const activeId = targetCafeId !== undefined ? targetCafeId : getActiveCafeId();
+
   const updated = kots.map((ticket) => {
-    if (ticket.status === fromStatus) {
+    const ticketCafe = ticket.cafeId || "cafe-delhi-flagship";
+    const matchesCafe = !activeId || activeId === "ALL_CAFES" || ticketCafe === activeId;
+
+    if (matchesCafe && ticket.status === fromStatus) {
       return {
         ...ticket,
         status: toStatus,
@@ -449,15 +473,15 @@ export function updateAllKOTStatus(fromStatus: KOTStatus, toStatus: KOTStatus): 
 }
 
 export function deleteOrder(id: string): Order[] {
-  const orders = getOrders();
+  const orders = getAllOrdersRaw();
   const updated = orders.filter((o) => o.id !== id && o.orderNumber !== id);
   if (!isClient()) memoryState.orders = updated;
   else setItem(KEYS.ORDERS, updated);
   return updated;
 }
 
-export function getZomatoOrders(): Order[] {
-  const orders = getOrders();
+export function getZomatoOrders(targetCafeId?: string): Order[] {
+  const orders = getOrders(targetCafeId);
   return orders.filter(
     (o) =>
       o.isZomatoOrder ??
@@ -465,8 +489,8 @@ export function getZomatoOrders(): Order[] {
   );
 }
 
-export function getInStoreOrders(): Order[] {
-  const orders = getOrders();
+export function getInStoreOrders(targetCafeId?: string): Order[] {
+  const orders = getOrders(targetCafeId);
   return orders.filter(
     (o) =>
       !(
@@ -476,9 +500,9 @@ export function getInStoreOrders(): Order[] {
   );
 }
 
-export function getSalesSummary(): SalesSummary {
-  const orders = getOrders();
-  const invoices = getCustomInvoices();
+export function getSalesSummary(targetCafeId?: string): SalesSummary {
+  const orders = getOrders(targetCafeId);
+  const invoices = getCustomInvoices(targetCafeId);
 
   const paidInStoreOrders = orders.filter(
     (o) =>
@@ -535,6 +559,7 @@ export interface CreateOrderParams {
   tableNumber?: string;
   isZomatoOrder?: boolean;
   zomatoOrderId?: string;
+  cafeId?: string; // Optional cafe ID
   notes?: string;
   items: OrderItemSnapshot[];
 }
@@ -546,12 +571,12 @@ export interface OrderCreationResult {
 }
 
 export function createOrderAndKOT(params: CreateOrderParams): OrderCreationResult {
-  const orders = getOrders();
-  const kots = getKOTTickets();
+  const allOrders = getAllOrdersRaw();
+  const allKots = getAllKOTTicketsRaw();
   const customers = getCustomers();
 
-  const nextOrderNum = 1040 + orders.length + 1;
-  const nextKotNum = 86 + kots.length + 1;
+  const nextOrderNum = 1040 + allOrders.length + 1;
+  const nextKotNum = 86 + allKots.length + 1;
 
   const orderId = `ord-${Date.now()}`;
   const orderNumber = `ORD-${nextOrderNum}`;
@@ -559,6 +584,12 @@ export function createOrderAndKOT(params: CreateOrderParams): OrderCreationResul
   const now = new Date().toISOString();
   const paymentStatus: PaymentStatus = params.paymentStatus || "PAID";
   const isPaid = paymentStatus === "PAID";
+
+  // Derive cafeId
+  const activeCtx = getActiveCafeId();
+  const assignedCafeId =
+    params.cafeId ||
+    (activeCtx && activeCtx !== "ALL_CAFES" ? activeCtx : "cafe-delhi-flagship");
 
   const isZomato = Boolean(
     params.isZomatoOrder ??
@@ -577,6 +608,7 @@ export function createOrderAndKOT(params: CreateOrderParams): OrderCreationResul
     id: orderId,
     orderNumber,
     kotNumber,
+    cafeId: assignedCafeId,
     customerId: params.customerId,
     customerName: params.customerName || (params.orderType === "DELIVERY" ? "Zomato Customer" : undefined),
     customerPhone: params.customerPhone,
@@ -614,6 +646,7 @@ export function createOrderAndKOT(params: CreateOrderParams): OrderCreationResul
   const newKot: KOTTicket = {
     id: `kot-${Date.now()}`,
     kotNumber,
+    cafeId: assignedCafeId,
     orderId,
     orderNumber,
     orderType: params.orderType,
@@ -684,9 +717,9 @@ export function createOrderAndKOT(params: CreateOrderParams): OrderCreationResul
     }
   }
 
-  // 5. Persist
-  const updatedOrders = [newOrder, ...orders];
-  const updatedKots = [newKot, ...kots];
+  // 5. Persist to ALL raw orders and kots
+  const updatedOrders = [newOrder, ...allOrders];
+  const updatedKots = [newKot, ...allKots];
 
   if (!isClient()) {
     memoryState.orders = updatedOrders;
@@ -702,14 +735,14 @@ export function createOrderAndKOT(params: CreateOrderParams): OrderCreationResul
 // ---------------- RUNNING ORDERS & TABLE WORKFLOW ----------------
 
 // Returns all active running orders that have not been settled/paid yet
-export function getRunningOrders(): Order[] {
-  const orders = getOrders();
+export function getRunningOrders(targetCafeId?: string): Order[] {
+  const orders = getOrders(targetCafeId);
   return orders.filter((o) => o.paymentStatus === "PENDING");
 }
 
 // Find open order by table number
-export function getRunningOrderByTable(tableNumber: string): Order | undefined {
-  const running = getRunningOrders();
+export function getRunningOrderByTable(tableNumber: string, targetCafeId?: string): Order | undefined {
+  const running = getRunningOrders(targetCafeId);
   return running.find((o) => o.tableNumber === tableNumber);
 }
 
@@ -725,8 +758,8 @@ export function addItemsToRunningOrder(params: {
   finalTotalDelta: number;
   notes?: string;
 }): { order: Order; kot: KOTTicket } | null {
-  const orders = getOrders();
-  const kots = getKOTTickets();
+  const orders = getAllOrdersRaw();
+  const kots = getAllKOTTicketsRaw();
   const orderIdx = orders.findIndex((o) => o.id === params.orderId);
   if (orderIdx < 0) return null;
 
@@ -746,6 +779,7 @@ export function addItemsToRunningOrder(params: {
   const newKot: KOTTicket = {
     id: `kot-${Date.now()}`,
     kotNumber,
+    cafeId: order.cafeId || "cafe-delhi-flagship",
     orderId: order.id,
     orderNumber: order.orderNumber,
     orderType: order.orderType,
@@ -807,7 +841,7 @@ export function settleRunningOrder(params: {
   customerName?: string;
   customerPhone?: string;
 }): { order: Order; customer?: Customer } | null {
-  const orders = getOrders();
+  const orders = getAllOrdersRaw();
   const customers = getCustomers();
   const orderIdx = orders.findIndex((o) => o.id === params.orderId);
   if (orderIdx < 0) return null;
@@ -900,7 +934,7 @@ export function settleRunningOrder(params: {
 
 // Cancel or void an unpaid running order
 export function cancelRunningOrder(orderId: string): boolean {
-  const orders = getOrders();
+  const orders = getAllOrdersRaw();
   const updated = orders.filter((o) => o.id !== orderId);
   if (!isClient()) memoryState.orders = updated;
   else setItem(KEYS.ORDERS, updated);
@@ -908,31 +942,46 @@ export function cancelRunningOrder(orderId: string): boolean {
 }
 
 // ---------------- DEDICATED CUSTOM INVOICES ----------------
-export function getCustomInvoices(): CustomInvoice[] {
+export function getAllCustomInvoicesRaw(): CustomInvoice[] {
   if (!isClient()) return memoryState.invoices;
   return getItem<CustomInvoice[]>(KEYS.INVOICES, INITIAL_INVOICES);
 }
 
+export function getCustomInvoices(targetCafeId?: string): CustomInvoice[] {
+  const all = getAllCustomInvoicesRaw();
+  const activeId = targetCafeId !== undefined ? targetCafeId : getActiveCafeId();
+  if (!activeId || activeId === "ALL_CAFES") {
+    return all;
+  }
+  return all.filter((inv) => (inv.cafeId || "cafe-delhi-flagship") === activeId);
+}
+
 export function getCustomInvoiceById(id: string): CustomInvoice | undefined {
-  const invoices = getCustomInvoices();
+  const invoices = getAllCustomInvoicesRaw();
   return invoices.find((inv) => inv.id === id || inv.invoiceNumber === id);
 }
 
 export function saveCustomInvoice(invoice: CustomInvoice): CustomInvoice {
-  const invoices = getCustomInvoices();
+  const invoices = getAllCustomInvoicesRaw();
+  const activeCtx = getActiveCafeId();
+  const assignedCafeId =
+    invoice.cafeId ||
+    (activeCtx && activeCtx !== "ALL_CAFES" ? activeCtx : "cafe-delhi-flagship");
+  const invoiceWithCafe = { ...invoice, cafeId: assignedCafeId };
+
   const idx = invoices.findIndex((i) => i.id === invoice.id || i.invoiceNumber === invoice.invoiceNumber);
   if (idx >= 0) {
-    invoices[idx] = invoice;
+    invoices[idx] = invoiceWithCafe;
   } else {
-    invoices.unshift(invoice);
+    invoices.unshift(invoiceWithCafe);
   }
   if (!isClient()) memoryState.invoices = invoices;
   else setItem(KEYS.INVOICES, invoices);
-  return invoice;
+  return invoiceWithCafe;
 }
 
 export function deleteCustomInvoice(id: string): CustomInvoice[] {
-  const invoices = getCustomInvoices();
+  const invoices = getAllCustomInvoicesRaw();
   const updated = invoices.filter((i) => i.id !== id);
   if (!isClient()) memoryState.invoices = updated;
   else setItem(KEYS.INVOICES, updated);
@@ -958,26 +1007,53 @@ export function addNotificationLog(log: Omit<NotificationLog, "id" | "timestamp"
   return newNotif;
 }
 
-export function getSettings(): CafeSettings {
-  if (!isClient()) return memoryState.settings;
-  const s = getItem<CafeSettings>(KEYS.SETTINGS, DEFAULT_CAFE_SETTINGS);
-  if (s && (s.cafeName === "The Roast & Crumb" || !s.cafeName)) {
-    const updated: CafeSettings = {
-      ...s,
+export function getSettings(targetCafeId?: string): CafeSettings {
+  const activeId = targetCafeId || getActiveCafeId();
+  let base = isClient()
+    ? getItem<CafeSettings>(KEYS.SETTINGS, DEFAULT_CAFE_SETTINGS)
+    : memoryState.settings;
+
+  if (base && (base.cafeName === "The Roast & Crumb" || !base.cafeName)) {
+    base = {
+      ...base,
       cafeName: "Chandni Chowk Cheese Cafe",
-      tagline: s.tagline === "Specialty Roastery & Artisan Bakehouse" ? "Heritage Flavours & Artisan Melts" : (s.tagline || "Heritage Flavours & Artisan Melts"),
-      upiPayeeName: s.upiPayeeName === "The Roast & Crumb Cafe" ? "Chandni Chowk Cheese Cafe" : (s.upiPayeeName || "Chandni Chowk Cheese Cafe"),
-      email: s.email === "hello@roastandcrumb.in" ? "hello@chandnichowkcheese.in" : (s.email || "hello@chandnichowkcheese.in"),
-      wifiSsid: s.wifiSsid === "RoastCrumb_Guest" ? "ChandniChowkCheese_Guest" : (s.wifiSsid || "ChandniChowkCheese_Guest"),
-      upiId: s.upiId === "roastandcrumb@hdfcbank" ? "chandnichowkcheese@hdfcbank" : (s.upiId || "chandnichowkcheese@hdfcbank"),
-      termsAndConditions: s.termsAndConditions?.includes("roastandcrumb.in")
-        ? s.termsAndConditions.replace(/roastandcrumb\.in/g, "chandnichowkcheese.in")
-        : s.termsAndConditions,
+      tagline: base.tagline === "Specialty Roastery & Artisan Bakehouse" ? "Heritage Flavours & Artisan Melts" : (base.tagline || "Heritage Flavours & Artisan Melts"),
+      upiPayeeName: base.upiPayeeName === "The Roast & Crumb Cafe" ? "Chandni Chowk Cheese Cafe" : (base.upiPayeeName || "Chandni Chowk Cheese Cafe"),
+      email: base.email === "hello@roastandcrumb.in" ? "hello@chandnichowkcheese.in" : (base.email || "hello@chandnichowkcheese.in"),
+      wifiSsid: base.wifiSsid === "RoastCrumb_Guest" ? "ChandniChowkCheese_Guest" : (base.wifiSsid || "ChandniChowkCheese_Guest"),
+      upiId: base.upiId === "roastandcrumb@hdfcbank" ? "chandnichowkcheese@hdfcbank" : (base.upiId || "chandnichowkcheese@hdfcbank"),
+      termsAndConditions: base.termsAndConditions?.includes("roastandcrumb.in")
+        ? base.termsAndConditions.replace(/roastandcrumb\.in/g, "chandnichowkcheese.in")
+        : base.termsAndConditions,
     };
-    setItem(KEYS.SETTINGS, updated);
-    return updated;
   }
-  return s;
+
+  // If a specific cafe is active or requested, overlay its identity details
+  if (activeId && activeId !== "ALL_CAFES") {
+    const cafeAccount = getCafeAccountById(activeId);
+    if (cafeAccount) {
+      const fullAddress = `${cafeAccount.location.addressLine}${
+        cafeAccount.location.landmark ? `, ${cafeAccount.location.landmark}` : ""
+      }, ${cafeAccount.location.city}, ${cafeAccount.location.state} ${cafeAccount.location.pincode}`;
+
+      return {
+        ...base,
+        cafeName: cafeAccount.cafeName,
+        tagline: cafeAccount.tagline || base.tagline,
+        address: fullAddress,
+        phone: cafeAccount.contactPhone || base.phone,
+        email: cafeAccount.contactEmail || base.email,
+        gstNumber: cafeAccount.gstin || base.gstNumber,
+        fssaiNumber: cafeAccount.fssaiNumber || base.fssaiNumber,
+        upiId: cafeAccount.upiId || base.upiId,
+        upiPayeeName: cafeAccount.upiPayeeName || cafeAccount.cafeName,
+        tableCount: cafeAccount.tableCount || base.tableCount,
+        cafeId: cafeAccount.id,
+      };
+    }
+  }
+
+  return base;
 }
 
 export function saveSettings(settings: CafeSettings): void {
@@ -986,8 +1062,8 @@ export function saveSettings(settings: CafeSettings): void {
 }
 
 // ---------------- TABLES MANAGEMENT ----------------
-export function getTables(): string[] {
-  const settings = getSettings();
+export function getTables(targetCafeId?: string): string[] {
+  const settings = getSettings(targetCafeId);
   if (settings.customTables && Array.isArray(settings.customTables) && settings.customTables.length > 0) {
     return settings.customTables;
   }

@@ -22,13 +22,19 @@ import {
   LayoutGrid,
   ShieldCheck,
   Receipt,
+  LogOut,
+  Check,
+  Key,
 } from "lucide-react";
 import { getMenuItems, getSettings, getZomatoOrders } from "@/lib/storage";
+import { useAuth } from "./AuthProvider";
 import ThemeToggle from "./ThemeToggle";
 import ZomatoOrderModal from "./ZomatoOrderModal";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, isSuperAdmin, activeCafe, activeCafeId, allCafes, switchCafe, logout } = useAuth();
+
   const [posItemCount, setPosItemCount] = useState<number>(0);
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -37,10 +43,30 @@ export default function Navbar() {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [showNavbarClock, setShowNavbarClock] = useState<boolean>(false);
   const [cafeName, setCafeName] = useState<string>("Chandni Chowk Cheese Cafe");
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
 
-  // Hide nav ONLY on customer digital bill view (e.g. mobile receipt sent via WhatsApp)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const branchMenuRef = useRef<HTMLDivElement>(null);
+
+  // Hide nav on customer digital bill view & login screen
   const isDedicatedCustomerReceipt = pathname.startsWith("/bill/");
+  const isLoginPage = pathname === "/login";
+
+  // Outside click listener for dropdowns
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+      if (branchMenuRef.current && !branchMenuRef.current.contains(e.target as Node)) {
+        setIsBranchMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   // Live ticking IST clock
   useEffect(() => {
@@ -100,25 +126,29 @@ export default function Navbar() {
     updateSettings();
     window.addEventListener("storage", updateSettings);
     return () => window.removeEventListener("storage", updateSettings);
-  }, []);
+  }, [activeCafeId]);
 
-  // Auto-close expanded menu on route change
+  // Auto-close menus on route change
   useEffect(() => {
     setIsExpanded(false);
+    setIsUserMenuOpen(false);
+    setIsBranchMenuOpen(false);
   }, [pathname]);
 
-  // ESC key closes expanded menu
+  // ESC key closes menus
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsExpanded(false);
+        setIsUserMenuOpen(false);
+        setIsBranchMenuOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  if (isDedicatedCustomerReceipt) {
+  if (isDedicatedCustomerReceipt || isLoginPage) {
     return null;
   }
 
@@ -152,177 +182,367 @@ export default function Navbar() {
   };
 
   return (
-    <header className="no-print sticky top-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 select-none shadow-xs dark:shadow-md transition-colors duration-150">
-      <div className="w-full px-3 sm:px-5 lg:px-6">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center h-14 gap-2">
-          {/* Brand Logo & Station ID - ALIGNED LEFT */}
-          <div
-            className="flex items-center gap-2.5 min-w-0 justify-start"
-            onMouseEnter={handleOtherNavMouseEnter}
-          >
+    <>
+      {/* Super Admin Branch Viewing Notice Banner */}
+      {isSuperAdmin && activeCafe && activeCafeId !== "ALL_CAFES" && (
+        <div className="no-print bg-amber-500 text-slate-950 px-3 sm:px-6 py-1.5 text-xs font-semibold flex items-center justify-between shadow-xs select-none">
+          <div className="flex items-center gap-2 truncate">
+            <span className="font-black px-1.5 py-0.5 rounded bg-slate-950 text-amber-400 text-[10px] uppercase font-mono tracking-wider">
+              HQ Admin
+            </span>
+            <span className="truncate">
+              Currently operating branch terminal for <strong>{activeCafe.cafeName}</strong> ({activeCafe.branchCode})
+            </span>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
             <Link
-              href="/pos"
-              onClick={() => setIsExpanded(false)}
-              className="flex items-center gap-2 group focus:outline-none min-w-0 flex-shrink-0"
+              href="/admin"
+              className="text-xs font-bold underline hover:text-white transition-colors"
             >
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 shadow-md group-hover:scale-105 transition-transform font-black flex-shrink-0">
-                <Coffee className="w-4 h-4 text-slate-950 stroke-[2.5]" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5 font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate">
-                  <span className="truncate">{cafeName}</span>
-                  <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.2 rounded font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex-shrink-0">
-                    POS
-                  </span>
-                </div>
-                <div className="hidden xl:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 leading-none">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                  <span>Terminal 01 • Live</span>
-                </div>
-              </div>
+              &larr; Return to HQ Monitoring Panel
             </Link>
           </div>
+        </div>
+      )}
 
-          {/* Navigation Dock - ALIGNED CENTER (Screens & Modules) */}
-          <nav className="flex items-center justify-center">
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-inner transition-colors">
-              {/* POS */}
+      <header className="no-print sticky top-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 select-none shadow-xs dark:shadow-md transition-colors duration-150">
+        <div className="w-full px-3 sm:px-5 lg:px-6">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center h-14 gap-2">
+            {/* Brand Logo & Station ID - ALIGNED LEFT */}
+            <div
+              className="flex items-center gap-2.5 min-w-0 justify-start"
+              onMouseEnter={handleOtherNavMouseEnter}
+            >
               <Link
                 href="/pos"
-                onMouseEnter={handleOtherNavMouseEnter}
-                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  isActive("/pos")
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                }`}
+                onClick={() => setIsExpanded(false)}
+                className="flex items-center gap-2 group focus:outline-none min-w-0 flex-shrink-0"
               >
-                <Monitor className="w-3.5 h-3.5" />
-                <span>POS</span>
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 shadow-md group-hover:scale-105 transition-transform font-black flex-shrink-0">
+                  <Coffee className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5 font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate">
+                    <span className="truncate">{activeCafe ? activeCafe.cafeName : cafeName}</span>
+                    <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.2 rounded font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex-shrink-0">
+                      {activeCafe ? activeCafe.branchCode : "POS"}
+                    </span>
+                  </div>
+                  <div className="hidden xl:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 leading-none">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                    <span>{activeCafe?.location.city || "Terminal 01"} • Live</span>
+                  </div>
+                </div>
               </Link>
+            </div>
 
-              {/* Menu */}
-              <Link
-                href="/menu"
-                onMouseEnter={handleOtherNavMouseEnter}
-                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  isActive("/menu")
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Menu</span>
-                <span
-                  suppressHydrationWarning
-                  className="text-[9px] px-1 py-0.2 rounded font-mono bg-slate-200 dark:bg-slate-800 text-amber-700 dark:text-amber-300 border border-slate-300 dark:border-slate-700"
-                >
-                  {isMounted ? posItemCount : 0}
-                </span>
-              </Link>
+            {/* Navigation Dock - ALIGNED CENTER (Screens & Modules) */}
+            <nav className="flex items-center justify-center">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-inner transition-colors">
+                {/* Admin HQ Link (Prominently displayed for Super Admin!) */}
+                {isSuperAdmin && (
+                  <Link
+                    href="/admin"
+                    onMouseEnter={handleOtherNavMouseEnter}
+                    className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                      isActive("/admin")
+                        ? "bg-amber-600 text-white shadow-sm"
+                        : "bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                    }`}
+                    title="Super Admin Multi-Cafe Control & Monitoring Panel"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Admin HQ</span>
+                  </Link>
+                )}
 
-              {/* Invoices */}
-              <Link
-                href="/invoices"
-                onMouseEnter={handleOtherNavMouseEnter}
-                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  isActive("/invoices")
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                }`}
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Invoices</span>
-              </Link>
-
-              {/* KDS */}
-              <Link
-                href="/kds"
-                onMouseEnter={handleOtherNavMouseEnter}
-                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  isActive("/kds")
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                }`}
-              >
-                <ChefHat className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Kitchen</span>
-              </Link>
-
-              {/* Modules Dropdown Trigger */}
-              <div
-                className="relative"
-                onMouseEnter={handleModulesMouseEnter}
-                onMouseLeave={handleModulesMouseLeave}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsExpanded((prev) => !prev)}
+                {/* POS */}
+                <Link
+                  href="/pos"
+                  onMouseEnter={handleOtherNavMouseEnter}
                   className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                    isExpanded
+                    isActive("/pos")
                       ? "bg-amber-600 text-white shadow-sm"
                       : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
                   }`}
-                  title="Hover or click to expand all modules (Customers, Coupons, Settings, etc.)"
                 >
-                  <LayoutGrid className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Modules</span>
-                  <ChevronDown
-                    className={`w-3 h-3 transition-transform duration-200 ${
-                      isExpanded ? "rotate-180 text-white" : "text-slate-400"
-                    }`}
-                  />
-                </button>
-              </div>
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span>POS</span>
+                </Link>
 
-              {/* Zomato Reference Orders Button - TO THE RIGHT OF MODULES */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsExpanded(false);
-                  setIsZomatoModalOpen(true);
-                }}
-                onMouseEnter={handleOtherNavMouseEnter}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 shadow-xs active:scale-95"
-                title="Add & View Zomato Orders (Reference & Bill Tracking)"
-              >
-                <Bike className="w-3.5 h-3.5 text-red-500" />
-                <span>Zomato</span>
-                {isMounted && zomatoCount > 0 && (
+                {/* Menu */}
+                <Link
+                  href="/menu"
+                  onMouseEnter={handleOtherNavMouseEnter}
+                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    isActive("/menu")
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Menu</span>
                   <span
                     suppressHydrationWarning
-                    className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 font-bold"
+                    className="text-[9px] px-1 py-0.2 rounded font-mono bg-slate-200 dark:bg-slate-800 text-amber-700 dark:text-amber-300 border border-slate-300 dark:border-slate-700"
                   >
-                    {zomatoCount}
+                    {isMounted ? posItemCount : 0}
                   </span>
-                )}
-              </button>
-            </div>
-          </nav>
+                </Link>
 
-          {/* Status Controls - ALIGNED RIGHT */}
-          <div
-            className="flex items-center justify-end gap-2 min-w-0"
-            onMouseEnter={handleOtherNavMouseEnter}
-          >
-            {/* Live IST Clock (Controlled by Settings, Hidden by default) */}
-            {showNavbarClock && currentTime && (
-              <div
-                className="hidden sm:flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900/90 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-800 font-mono shadow-xs whitespace-nowrap flex-shrink-0 animate-in fade-in duration-200"
-                title="Current time (IST)"
-              >
-                <Clock className="w-3.5 h-3.5 text-amber-500" />
-                <span>{currentTime}</span>
+                {/* Invoices */}
+                <Link
+                  href="/invoices"
+                  onMouseEnter={handleOtherNavMouseEnter}
+                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    isActive("/invoices")
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Invoices</span>
+                </Link>
+
+                {/* KDS */}
+                <Link
+                  href="/kds"
+                  onMouseEnter={handleOtherNavMouseEnter}
+                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    isActive("/kds")
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <ChefHat className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Kitchen</span>
+                </Link>
+
+                {/* Modules Dropdown Trigger */}
+                <div
+                  className="relative"
+                  onMouseEnter={handleModulesMouseEnter}
+                  onMouseLeave={handleModulesMouseLeave}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded((prev) => !prev)}
+                    className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                      isExpanded
+                        ? "bg-amber-600 text-white shadow-sm"
+                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
+                    }`}
+                    title="Hover or click to expand all modules (Customers, Coupons, Settings, etc.)"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Modules</span>
+                    <ChevronDown
+                      className={`w-3 h-3 transition-transform duration-200 ${
+                        isExpanded ? "rotate-180 text-white" : "text-slate-400"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Zomato Reference Orders Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExpanded(false);
+                    setIsZomatoModalOpen(true);
+                  }}
+                  onMouseEnter={handleOtherNavMouseEnter}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 shadow-xs active:scale-95"
+                  title="Add & View Zomato Orders (Reference & Bill Tracking)"
+                >
+                  <Bike className="w-3.5 h-3.5 text-red-500" />
+                  <span>Zomato</span>
+                  {isMounted && zomatoCount > 0 && (
+                    <span
+                      suppressHydrationWarning
+                      className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 font-bold"
+                    >
+                      {zomatoCount}
+                    </span>
+                  )}
+                </button>
               </div>
-            )}
+            </nav>
 
-            {/* Theme Toggle (Dark / Light mode) */}
-            <ThemeToggle />
+            {/* Status & Auth Controls - ALIGNED RIGHT */}
+            <div
+              className="flex items-center justify-end gap-2 min-w-0"
+              onMouseEnter={handleOtherNavMouseEnter}
+            >
+              {/* Branch Switcher (for Super Admin) */}
+              {isSuperAdmin && (
+                <div className="relative" ref={branchMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsBranchMenuOpen(!isBranchMenuOpen)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all shadow-xs"
+                    title="Switch Active Cafe Branch"
+                  >
+                    <Store className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="hidden lg:inline truncate max-w-[110px]">
+                      {activeCafe ? activeCafe.branchCode : "All Stores"}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  </button>
+
+                  {isBranchMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95">
+                      <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 mb-1">
+                        Switch Store Terminal
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          switchCafe("ALL_CAFES");
+                          setIsBranchMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                          activeCafeId === "ALL_CAFES"
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
+                            : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>👑</span>
+                          <span>All Branches (HQ Overview)</span>
+                        </div>
+                        {activeCafeId === "ALL_CAFES" && <Check className="w-3.5 h-3.5 text-amber-500" />}
+                      </button>
+
+                      {allCafes
+                        .filter((c) => c.role !== "SUPER_ADMIN")
+                        .map((cafe) => (
+                          <button
+                            key={cafe.id}
+                            type="button"
+                            onClick={() => {
+                              switchCafe(cafe.id);
+                              setIsBranchMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                              activeCafeId === cafe.id
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
+                                : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            <div className="truncate pr-2">
+                              <div className="truncate font-bold text-slate-900 dark:text-white">
+                                {cafe.cafeName}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {cafe.branchCode} • {cafe.location.city}
+                              </div>
+                            </div>
+                            {activeCafeId === cafe.id && (
+                              <Check className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Live IST Clock (Controlled by Settings) */}
+              {showNavbarClock && currentTime && (
+                <div
+                  className="hidden xl:flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900/90 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-800 font-mono shadow-xs whitespace-nowrap flex-shrink-0 animate-in fade-in duration-200"
+                  title="Current time (IST)"
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{currentTime}</span>
+                </div>
+              )}
+
+              {/* Theme Toggle (Dark / Light mode) */}
+              <ThemeToggle />
+
+              {/* User Profile & Logout Dropdown */}
+              {user ? (
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-1.5 p-1 pl-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-all text-xs font-semibold shadow-xs"
+                    title={`Logged in as ${user.username}`}
+                  >
+                    <span className="hidden sm:inline font-mono text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[80px]">
+                      {user.username}
+                    </span>
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
+                      {user.username.slice(0, 2).toUpperCase()}
+                    </div>
+                  </button>
+
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in zoom-in-95">
+                      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1.5">
+                        <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                          {user.managerName || user.username}
+                        </div>
+                        <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider mt-0.5">
+                          {user.role === "SUPER_ADMIN" ? "👑 Master Super Admin" : "☕ Branch Account"}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
+                          {user.cafeName}
+                        </div>
+                      </div>
+
+                      {isSuperAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Admin Control Panel</span>
+                        </Link>
+                      )}
+
+                      <Link
+                        href="/settings"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>Store Settings</span>
+                      </Link>
+
+                      <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Log Out</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all shadow-xs"
+                >
+                  Sign In
+                </Link>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ---------------- EXPANDED MEGA-MENU DECK ON MODULES HOVER/CLICK ---------------- */}
-      {isExpanded && (
+        {/* ---------------- EXPANDED MEGA-MENU DECK ON MODULES HOVER/CLICK ---------------- */}
+        {isExpanded && (
         <>
           {/* Backdrop Blur to make menu pop */}
           <div
@@ -530,8 +750,35 @@ export default function Navbar() {
                 {/* Column 4: CRM & Store Operations */}
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block px-1">
-                    👥 CRM &amp; Settings
+                    👥 CRM &amp; Operations
                   </span>
+
+                  {isSuperAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsExpanded(false)}
+                      className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                        isActive("/admin")
+                          ? "bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/50 shadow-sm"
+                          : "bg-amber-500/5 hover:bg-amber-500/10 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 border-amber-300/60 dark:border-amber-500/40"
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform font-bold">
+                        <ShieldCheck className="w-5 h-5 text-amber-500" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-amber-700 dark:text-amber-300">
+                          <span>HQ Multi-Store Panel</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-600 text-white">
+                            Master
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                          Live monitoring of all branches, gross revenue, table occupancy &amp; branch creation.
+                        </p>
+                      </div>
+                    </Link>
+                  )}
 
                   <Link
                     href="/customers"
@@ -630,5 +877,6 @@ export default function Navbar() {
         onClose={() => setIsZomatoModalOpen(false)}
       />
     </header>
+  </>
   );
 }

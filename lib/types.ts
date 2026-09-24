@@ -135,6 +135,7 @@ export interface Order {
   tableNumber?: string;
   isZomatoOrder?: boolean; // Explicit flag distinguishing Zomato Delivery vs Cafe In-Store
   zomatoOrderId?: string;
+  cafeId?: string; // Multi-tenant branch identifier
   notes?: string;
   items: OrderItemSnapshot[];
   createdAt: string;
@@ -159,6 +160,7 @@ export interface KOTTicket {
   orderType: OrderType;
   tableNumber?: string;
   status: KOTStatus;
+  cafeId?: string;
   preparationNotes?: string;
   items: OrderItemSnapshot[];
   createdAt: string;
@@ -209,6 +211,7 @@ export interface CafeSettings {
   showNavbarClock?: boolean;
   tableCount?: number; // Total number of dining tables (default 12)
   customTables?: string[]; // Optional custom table identifiers (e.g. ["T-01", "Outdoor-1"])
+  cafeId?: string;
 }
 
 // ---------------- DEDICATED INVOICE SPECIFICATION ----------------
@@ -267,5 +270,61 @@ export interface CustomInvoice {
   // Terms & Notes
   notes?: string;
   terms?: string;
+  cafeId?: string;
   createdAt: string;
 }
+
+// ---------------- MULTI-CAFE LOGIN & BRANCH TYPES ----------------
+export interface CafeLocation {
+  addressLine: string; // e.g. "Shop 48, Near Town Hall, Chandni Chowk"
+  landmark?: string;   // e.g. "Opp. Gurudwara Sis Ganj"
+  city: string;        // e.g. "Delhi", "Bengaluru"
+  state: string;       // e.g. "Delhi", "Karnataka"
+  pincode: string;     // e.g. "110006"
+}
+
+export type UserRole = "SUPER_ADMIN" | "CAFE_MANAGER" | "CASHIER";
+
+export type CafeStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
+
+export interface CafeAccount {
+  id: string; // unique ID e.g. "cafe-delhi-flagship", "cafe-cp-02"
+  username: string; // e.g. "admin", "chandni_cp"
+  password: string; // password
+  pin?: string; // 4-digit quick POS cashier PIN
+  role: UserRole;
+  
+  // Cafe & Branch Details
+  cafeName: string;
+  branchCode: string; // e.g. "CC-DEL-01", "CC-CP-02"
+  tagline?: string;
+  
+  // Detailed Location
+  location: CafeLocation;
+  
+  // Management & Contact Details
+  managerName: string;
+  contactPhone: string;
+  contactEmail: string;
+  
+  // Compliance & Operations
+  gstin: string;
+  fssaiNumber: string;
+  tableCount: number;
+  seatingCapacity: number;
+  upiId: string;
+  upiPayeeName: string;
+  status: CafeStatus;
+  openingHours?: string;
+  
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+export interface AuthSession {
+  user: CafeAccount;
+  activeCafeId: string; // If SUPER_ADMIN, which cafe is currently viewed/selected, or "ALL_CAFES"
+  token: string;
+  loginAt: string;
+}
+

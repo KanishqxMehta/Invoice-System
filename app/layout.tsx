@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 import ToastContainer from "@/components/ToastContainer";
 
 export const metadata: Metadata = {
@@ -36,9 +37,11 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider>
-          <Navbar />
-          <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">{children}</main>
-          <ToastContainer />
+          <AuthProvider>
+            <Navbar />
+            <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">{children}</main>
+            <ToastContainer />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
