@@ -10,6 +10,7 @@ import {
   CafeSettings,
   PortionVariant,
   Order,
+  OrderType,
 } from "@/lib/types";
 import {
   getMenuItems,
@@ -20,6 +21,7 @@ import {
   DEFAULT_TABLES,
 } from "@/lib/storage";
 import TableManagerModal from "@/components/TableManagerModal";
+import TableSelectorModal from "@/components/TableSelectorModal";
 import { calculateCartItemTotal, formatINR } from "@/lib/calculator";
 import {
   Utensils,
@@ -33,6 +35,7 @@ import {
   ShoppingCart,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -44,6 +47,8 @@ export default function PosPage() {
   const [runningOrders, setRunningOrders] = useState<Order[]>([]);
   const [activeRunningOrder, setActiveRunningOrder] = useState<Order | null>(null);
   const [selectedTable, setSelectedTable] = useState<string>("T-01");
+  const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
+  const [showTableSelector, setShowTableSelector] = useState<boolean>(false);
   const [tables, setTables] = useState<string[]>(DEFAULT_TABLES);
   const [showTableManager, setShowTableManager] = useState<boolean>(false);
 
@@ -154,6 +159,7 @@ export default function PosPage() {
   // Select Table Handler
   const handleSelectTable = (tbl: string) => {
     setSelectedTable(tbl);
+    setOrderType("DINE_IN");
     const existing = runningOrders.find((o) => o.tableNumber === tbl);
     if (existing) {
       setActiveRunningOrder(existing);
@@ -168,7 +174,34 @@ export default function PosPage() {
     setCart([]);
     const currentTables = getTables();
     setSelectedTable(currentTables[0] || "T-01");
+    setOrderType("DINE_IN");
   };
+
+  // Keyboard shortcut: Press T or F2 to open Table Selector Modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if (
+        e.key === "F2" ||
+        (!isInput &&
+          (e.key === "t" || e.key === "T") &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey)
+      ) {
+        e.preventDefault();
+        setShowTableSelector((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Add item with portion and modifiers to cart
   const handleAddToCart = (
@@ -279,89 +312,103 @@ export default function PosPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full max-h-full min-h-0 overflow-hidden bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* TOP: ACTIVE TABLES & RUNNING OPEN TABS BAR */}
-      <div className="px-3 py-2 bg-white dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 flex-shrink-0 select-none overflow-x-auto scrollbar-none shadow-xs">
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+      {/* TOP COMPACT ACTION BAR (Speed-first table & tab navigation) */}
+      <div className="px-3.5 py-2 bg-white dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5 flex-shrink-0 select-none shadow-xs">
+        {/* Left: Quick Actions & Table Selector Pill */}
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {/* New Order Button */}
           <button
             type="button"
             onClick={handleStartFreshOrder}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex-shrink-0 ${
               !activeRunningOrder && cart.length === 0
                 ? "bg-amber-600 text-white"
                 : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
             }`}
-            title="Start a fresh counter order or new table tab"
+            title="Start a fresh counter order or new tab"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Order</span>
           </button>
 
-          <span className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+          <span className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+
+          {/* Interactive Table Picker Pill */}
+          <button
+            type="button"
+            onClick={() => setShowTableSelector(true)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex-shrink-0 border ${
+              orderType === "TAKEAWAY"
+                ? "bg-amber-600 hover:bg-amber-500 text-white border-amber-500"
+                : activeRunningOrder
+                ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700/80 ring-1 ring-amber-400/40"
+                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
+            }`}
+            title="Click to view all tables or switch (Keyboard: T or F2)"
+          >
+            {orderType === "TAKEAWAY" ? (
+              <>
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Takeaway / Counter</span>
+              </>
+            ) : activeRunningOrder ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="font-mono">Table {selectedTable}</span>
+                <span className="font-mono font-bold text-[11px] text-amber-700 dark:text-amber-300">
+                  {formatINR(activeRunningOrder.finalTotal)}
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  (#{activeRunningOrder.orderNumber})
+                </span>
+              </>
+            ) : (
+              <>
+                <Utensils className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span className="font-mono">Table {selectedTable}</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  (Available)
+                </span>
+              </>
+            )}
+            <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 ml-0.5" />
+          </button>
+
+          {/* Running Tabs Quick Counter Button */}
+          {runningOrders.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowTableSelector(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/80 font-bold text-xs transition-all shadow-xs flex-shrink-0"
+              title="View and switch between active open table tabs"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{runningOrders.length} Open Tabs</span>
+              <span className="font-mono text-[10px] text-emerald-700 dark:text-emerald-400 font-normal">
+                ({formatINR(runningOrders.reduce((sum, o) => sum + o.finalTotal, 0))})
+              </span>
+            </button>
+          )}
+
+          {/* Subtle Keyboard hint */}
+          <span className="hidden xl:inline text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+            Press <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">T</kbd> for Tables
+          </span>
         </div>
 
-        {/* Dynamic Tables Grid with Occupancy & Running Balance status */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1">
-          {tables.map((tbl) => {
-            const running = runningOrders.find((o) => o.tableNumber === tbl);
-            const isSelected = selectedTable === tbl && (!activeRunningOrder || activeRunningOrder.tableNumber === tbl);
-
-            return (
-              <button
-                key={tbl}
-                type="button"
-                onClick={() => handleSelectTable(tbl)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  running
-                    ? isSelected
-                      ? "bg-emerald-600 text-white font-bold ring-2 ring-emerald-400 shadow-md scale-102"
-                      : "bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/80 hover:bg-emerald-100 dark:hover:bg-emerald-900/80"
-                    : isSelected
-                    ? "bg-slate-900 text-white dark:bg-slate-700 dark:text-white border border-slate-800 dark:border-slate-600 shadow-sm"
-                    : "bg-slate-100/90 dark:bg-slate-800/60 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/90 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
-                }`}
-                title={
-                  running
-                    ? `Table ${tbl} has an active open order (#${running.orderNumber}) for ${formatINR(running.finalTotal)}`
-                    : `Table ${tbl} is free`
-                }
-              >
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    running ? "bg-emerald-500 animate-pulse" : "bg-slate-400 dark:bg-slate-600"
-                  }`}
-                />
-                <span className="font-mono">{tbl}</span>
-                {running && (
-                  <span className="font-mono font-bold text-[10px] ml-0.5">
-                    {formatINR(running.finalTotal)}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* Quick Add / Manage Dining Tables Button */}
+        {/* Right side: Table Management & Cart Toggle */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
             onClick={() => setShowTableManager(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-dashed border-amber-300 dark:border-amber-700/80 transition-all whitespace-nowrap shadow-2xs flex-shrink-0"
-            title="Configure, scale (+ / -), or add custom dining tables"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors"
+            title="Configure, scale, or add custom dining tables"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tables ({tables.length})</span>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Tables ({tables.length})</span>
           </button>
-        </div>
 
-        {/* Right side status & cart toggle */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-500 dark:text-slate-400">
-            <Utensils className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-            <span>
-              Open Tabs: <strong className="text-emerald-600 dark:text-emerald-400">{runningOrders.length}</strong>
-            </span>
-          </div>
-
-          <span className="hidden lg:inline h-4 w-px bg-slate-200 dark:bg-slate-800" />
+          <span className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
 
           {/* Retractable Cart Toggle Button */}
           <button
@@ -483,9 +530,26 @@ export default function PosPage() {
             onToggleCollapse={handleToggleCartCollapse}
             tables={tables}
             onOpenTableManager={() => setShowTableManager(true)}
+            orderType={orderType}
+            onSelectOrderType={setOrderType}
+            onOpenTableSelector={() => setShowTableSelector(true)}
           />
         </section>
       </div>
+
+      {/* 2D Table Floor & Quick Selector Modal */}
+      <TableSelectorModal
+        isOpen={showTableSelector}
+        onClose={() => setShowTableSelector(false)}
+        tables={tables}
+        selectedTable={selectedTable}
+        onSelectTable={setSelectedTable}
+        runningOrders={runningOrders}
+        onSelectRunningOrder={setActiveRunningOrder}
+        orderType={orderType}
+        onSelectOrderType={setOrderType}
+        onOpenTableManager={() => setShowTableManager(true)}
+      />
 
       {/* Table Manager Modal */}
       <TableManagerModal

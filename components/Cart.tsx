@@ -71,6 +71,9 @@ interface Props {
   onToggleCollapse?: () => void;
   tables?: string[];
   onOpenTableManager?: () => void;
+  orderType?: OrderType;
+  onSelectOrderType?: (type: OrderType) => void;
+  onOpenTableSelector?: () => void;
 }
 
 export default function Cart({
@@ -88,6 +91,9 @@ export default function Cart({
   onToggleCollapse,
   tables,
   onOpenTableManager,
+  orderType: propOrderType,
+  onSelectOrderType,
+  onOpenTableSelector,
 }: Props) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -101,8 +107,21 @@ export default function Cart({
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [redeemPointsChecked, setRedeemPointsChecked] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
-  const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
+  const [orderType, setOrderType] = useState<OrderType>(propOrderType || "DINE_IN");
   const [tableNumber, setTableNumber] = useState(selectedTable);
+
+  useEffect(() => {
+    if (propOrderType !== undefined) {
+      setOrderType(propOrderType);
+    }
+  }, [propOrderType]);
+
+  const handleSetOrderType = (newType: OrderType) => {
+    setOrderType(newType);
+    if (onSelectOrderType) {
+      onSelectOrderType(newType);
+    }
+  };
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI_QR");
   const [cashTendered, setCashTendered] = useState("");
   const [notes, setNotes] = useState("");
@@ -138,9 +157,9 @@ export default function Cart({
     if (activeRunningOrder) {
       if (activeRunningOrder.tableNumber) {
         setTableNumber(activeRunningOrder.tableNumber);
-        setOrderType("DINE_IN");
+        handleSetOrderType("DINE_IN");
       } else {
-        setOrderType(activeRunningOrder.orderType);
+        handleSetOrderType(activeRunningOrder.orderType);
       }
       if (activeRunningOrder.customerName || activeRunningOrder.customerPhone) {
         setCustomer({
@@ -557,13 +576,25 @@ export default function Cart({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleVoidRunningTab}
-            className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 underline"
-          >
-            Void Tab
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenTableSelector && (
+              <button
+                type="button"
+                onClick={onOpenTableSelector}
+                className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 hover:underline px-2 py-0.5 rounded-lg bg-amber-200/50 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700/60"
+                title="Switch to another table or tab (T or F2)"
+              >
+                Switch Table ▾
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleVoidRunningTab}
+              className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 underline"
+            >
+              Void Tab
+            </button>
+          </div>
         </div>
       )}
 
@@ -591,7 +622,7 @@ export default function Cart({
           {/* Dine-In */}
           <button
             type="button"
-            onClick={() => setOrderType("DINE_IN")}
+            onClick={() => handleSetOrderType("DINE_IN")}
             className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg transition-all ${
               orderType === "DINE_IN"
                 ? "bg-amber-600 text-white font-bold shadow-sm"
@@ -605,7 +636,7 @@ export default function Cart({
           {/* Takeaway */}
           <button
             type="button"
-            onClick={() => setOrderType("TAKEAWAY")}
+            onClick={() => handleSetOrderType("TAKEAWAY")}
             className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg transition-all ${
               orderType === "TAKEAWAY"
                 ? "bg-amber-600 text-white font-bold shadow-sm"
@@ -622,29 +653,44 @@ export default function Cart({
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Table:</span>
             <div className="flex-1 flex items-center gap-1.5">
-              <select
-                suppressHydrationWarning
-                value={availableTables.includes(tableNumber) ? tableNumber : "__CUSTOM__"}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val !== "__CUSTOM__") {
-                    setTableNumber(val);
-                    if (onSelectTable) onSelectTable(val);
-                  }
-                }}
-                className="flex-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-amber-700 dark:text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
-              >
-                {availableTables.map((t) => (
-                  <option key={t} value={t}>
-                    {t.toLowerCase().startsWith("table") ? t : `Table ${t}`}
-                  </option>
-                ))}
-                {!availableTables.includes(tableNumber) && (
-                  <option value="__CUSTOM__">
-                    {tableNumber.toLowerCase().startsWith("table") ? tableNumber : `Table ${tableNumber}`} (Custom)
-                  </option>
-                )}
-              </select>
+              {onOpenTableSelector ? (
+                <button
+                  type="button"
+                  onClick={onOpenTableSelector}
+                  className="flex-1 flex items-center justify-between text-xs font-bold px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-300 dark:border-slate-700 text-amber-700 dark:text-amber-300 transition-colors font-mono"
+                  title="Click to view all tables and switch (T or F2)"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Utensils className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{tableNumber.toLowerCase().startsWith("table") ? tableNumber : `Table ${tableNumber}`}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Change ▾</span>
+                </button>
+              ) : (
+                <select
+                  suppressHydrationWarning
+                  value={availableTables.includes(tableNumber) ? tableNumber : "__CUSTOM__"}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val !== "__CUSTOM__") {
+                      setTableNumber(val);
+                      if (onSelectTable) onSelectTable(val);
+                    }
+                  }}
+                  className="flex-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-amber-700 dark:text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                >
+                  {availableTables.map((t) => (
+                    <option key={t} value={t}>
+                      {t.toLowerCase().startsWith("table") ? t : `Table ${t}`}
+                    </option>
+                  ))}
+                  {!availableTables.includes(tableNumber) && (
+                    <option value="__CUSTOM__">
+                      {tableNumber.toLowerCase().startsWith("table") ? tableNumber : `Table ${tableNumber}`} (Custom)
+                    </option>
+                  )}
+                </select>
+              )}
 
               {onOpenTableManager && (
                 <button
