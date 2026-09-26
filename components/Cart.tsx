@@ -79,7 +79,9 @@ interface Props {
   orderType?: OrderType;
   onSelectOrderType?: (type: OrderType) => void;
   onOpenTableSelector?: () => void;
+  onOpenTableTransfer?: () => void;
   onTransferTable?: (orderId: string, newTable: string) => void;
+  onMoveToTakeaway?: (orderId: string) => void;
 }
 
 export default function Cart({
@@ -100,7 +102,9 @@ export default function Cart({
   orderType: propOrderType,
   onSelectOrderType,
   onOpenTableSelector,
+  onOpenTableTransfer,
   onTransferTable,
+  onMoveToTakeaway,
 }: Props) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -124,6 +128,25 @@ export default function Cart({
   }, [propOrderType]);
 
   const handleSetOrderType = (newType: OrderType) => {
+    // If they have an active running order (already saved to DB)
+    if (activeRunningOrder) {
+      if (newType === "TAKEAWAY" && activeRunningOrder.orderType === "DINE_IN") {
+         if (onMoveToTakeaway) {
+           onMoveToTakeaway(activeRunningOrder.id);
+         }
+         return; // Let the page component handle the state update after DB update
+      } else if (newType === "DINE_IN" && activeRunningOrder.orderType === "TAKEAWAY") {
+         // They want to move a Takeaway order to Dine-In -> Force them to pick a table in transfer mode!
+         if (onOpenTableTransfer) {
+           onOpenTableTransfer(); 
+         } else if (onOpenTableSelector) {
+           onOpenTableSelector(); 
+         }
+         return;
+      }
+    }
+
+    // For fresh carts (no active running order)
     setOrderType(newType);
     if (onSelectOrderType) {
       onSelectOrderType(newType);
@@ -164,9 +187,9 @@ export default function Cart({
     if (activeRunningOrder) {
       if (activeRunningOrder.tableNumber) {
         setTableNumber(activeRunningOrder.tableNumber);
-        handleSetOrderType("DINE_IN");
+        setOrderType("DINE_IN");
       } else {
-        handleSetOrderType(activeRunningOrder.orderType);
+        setOrderType(activeRunningOrder.orderType);
       }
       if (activeRunningOrder.customerName || activeRunningOrder.customerPhone) {
         setCustomer({
@@ -564,31 +587,6 @@ export default function Cart({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {activeRunningOrder && (
-            <button
-              type="button"
-              onClick={() => {
-                if (onSelectRunningOrder) onSelectRunningOrder(null);
-                onClearCart();
-              }}
-              className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-              title="Release current tab from cashier view"
-            >
-              Close Tab
-            </button>
-          )}
-
-          {totalItemsCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowBillerPreview(true)}
-              className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 border border-amber-200 dark:border-slate-700 transition-colors"
-              title="Preview customer invoice and thermal bill before punching"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Preview</span>
-            </button>
-          )}
 
           {cart.length > 0 && (
             <button
@@ -605,10 +603,16 @@ export default function Cart({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-0.5"
-              title="Collapse Billing Cart (Alt+C)"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm border bg-slate-800 text-slate-200 border-slate-700 hover:border-slate-600 ml-1"
+              title="Hide Cart (Alt+C)"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span>Hide Cart</span>
+              {totalItemsCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-white/20 ml-1">
+                  {totalItemsCount}
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -622,7 +626,9 @@ export default function Cart({
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
             <div className="min-w-0">
               <span className="font-bold text-amber-950 dark:text-amber-200 truncate block">
-                Table {activeRunningOrder.tableNumber || "Tab"} • #{activeRunningOrder.orderNumber}
+                {activeRunningOrder.orderType === "TAKEAWAY"
+                  ? `Takeaway Tab • #${activeRunningOrder.orderNumber}`
+                  : `Table ${activeRunningOrder.tableNumber || "Tab"} • #${activeRunningOrder.orderNumber}`}
               </span>
               <div className="text-[10px] text-slate-600 dark:text-slate-400 font-mono">
                 Running: <strong className="text-slate-900 dark:text-slate-200">{formatINR(activeRunningOrder.finalTotal)}</strong> (Unsettled)
@@ -630,17 +636,32 @@ export default function Cart({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {onOpenTableSelector && (
               <button
                 type="button"
                 onClick={onOpenTableSelector}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold text-xs shadow-xs transition-all border border-amber-500"
-                title="Switch to another table or tab (T or F2)"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all border border-slate-200 dark:border-slate-700"
+                title="View other tables or take an order on an empty table (T or F2)"
+              >
+                <Utensils className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                <span>Switch Table</span>
+              </button>
+            )}
+
+            {onOpenTableTransfer && (
+              <button
+                type="button"
+                onClick={onOpenTableTransfer}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold text-xs shadow-xs transition-all border border-amber-500"
+                title={
+                  activeRunningOrder.orderType === "TAKEAWAY"
+                    ? "Seat this Takeaway order at a dining table"
+                    : "Shift/transfer this active tab to another table"
+                }
               >
                 <ArrowLeftRight className="w-3.5 h-3.5" />
-                <span>Switch Table</span>
-                <ChevronDown className="w-3 h-3 opacity-80" />
+                <span>{activeRunningOrder.orderType === "TAKEAWAY" ? "Assign Table" : "Transfer"}</span>
               </button>
             )}
 
@@ -648,10 +669,14 @@ export default function Cart({
               type="button"
               onClick={handleVoidRunningTab}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 active:scale-95 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 font-bold text-xs transition-all shadow-xs"
-              title="Release and free this table (cancel active tab)"
+              title={
+                activeRunningOrder.orderType === "TAKEAWAY"
+                  ? "Cancel and void this unpaid takeaway tab"
+                  : "Release and free this table (cancel active tab)"
+              }
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Free Table</span>
+              <span>{activeRunningOrder.orderType === "TAKEAWAY" ? "Cancel Tab" : "Free Table"}</span>
             </button>
           </div>
         </div>
@@ -816,7 +841,7 @@ export default function Cart({
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
               <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
                 <Check className="w-3.5 h-3.5" />
-                <span>Sent to Kitchen (KOT #{activeRunningOrder.kotNumber})</span>
+                <span>Sent to Kitchen (#{activeRunningOrder.kotNumber})</span>
               </span>
               <span className="font-mono text-slate-700 dark:text-slate-300">{formatINR(activeRunningOrder.subtotal)}</span>
             </div>

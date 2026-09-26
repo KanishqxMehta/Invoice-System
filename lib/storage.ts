@@ -968,6 +968,35 @@ export function transferRunningOrderTable(orderId: string, newTable: string): Or
     setItem(KEYS.ORDERS, orders);
     setItem(KEYS.KOTS, updatedKots);
   }
+  
+  return updatedOrder;
+}
+
+export function convertOrderToTakeaway(orderId: string): Order | null {
+  const orders = getAllOrdersRaw();
+  const kots = getAllKOTTicketsRaw();
+  const orderIdx = orders.findIndex((o) => o.id === orderId);
+  if (orderIdx < 0) return null;
+
+  const order = orders[orderIdx];
+  const updatedOrder: Order = {
+    ...order,
+    tableNumber: undefined,
+    orderType: "TAKEAWAY",
+  };
+  orders[orderIdx] = updatedOrder;
+
+  const updatedKots = kots.map((k) =>
+    k.orderId === orderId ? { ...k, tableNumber: undefined } : k
+  );
+
+  if (!isClient()) {
+    memoryState.orders = orders;
+    memoryState.kots = updatedKots;
+  } else {
+    setItem(KEYS.ORDERS, orders);
+    setItem(KEYS.KOTS, updatedKots);
+  }
 
   return updatedOrder;
 }

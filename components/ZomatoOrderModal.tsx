@@ -415,7 +415,7 @@ export default function ZomatoOrderModal({ isOpen, onClose }: Props) {
               }`}
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Zomato Items</span>
+              <span>Add Zomato Items</span>
               {draftItems.length > 0 && (
                 <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-bold">
                   {draftItems.length}

@@ -10,11 +10,9 @@ import {
   Users,
   Tag,
   Settings,
-  FileText,
   Layers,
   Bike,
   ChevronDown,
-  PlusCircle,
   UploadCloud,
   X,
   Store,
@@ -24,7 +22,7 @@ import {
   Receipt,
   LogOut,
   Check,
-  Key,
+  Search,
 } from "lucide-react";
 import { getMenuItems, getSettings, getZomatoOrders } from "@/lib/storage";
 import { useAuth } from "./AuthProvider";
@@ -45,6 +43,7 @@ export default function Navbar() {
   const [cafeName, setCafeName] = useState<string>("Chandni Chowk Cheese Cafe");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
+  const [branchSearch, setBranchSearch] = useState("");
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -76,7 +75,6 @@ export default function Navbar() {
         now.toLocaleTimeString("en-IN", {
           hour: "2-digit",
           minute: "2-digit",
-          second: "2-digit",
           hour12: true,
         })
       );
@@ -133,6 +131,7 @@ export default function Navbar() {
     setIsExpanded(false);
     setIsUserMenuOpen(false);
     setIsBranchMenuOpen(false);
+    setBranchSearch("");
   }, [pathname]);
 
   // ESC key closes menus
@@ -181,197 +180,159 @@ export default function Navbar() {
     return pathname.startsWith(href);
   };
 
+  const filteredCafes = allCafes
+    .filter((c) => c.role !== "SUPER_ADMIN")
+    .filter((c) => 
+      c.cafeName.toLowerCase().includes(branchSearch.toLowerCase()) || 
+      c.branchCode.toLowerCase().includes(branchSearch.toLowerCase()) ||
+      c.location.city.toLowerCase().includes(branchSearch.toLowerCase())
+    );
+
+  const totalBranches = allCafes.filter(c => c.role !== "SUPER_ADMIN").length;
+
+  if (!isMounted) {
+    return (
+      <header className="no-print sticky top-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-lg h-14 border-b border-slate-200 dark:border-slate-800/80 shadow-sm" />
+    );
+  }
+
   return (
     <>
-      {/* Super Admin Branch Viewing Notice Banner */}
-      {isSuperAdmin && activeCafe && activeCafeId !== "ALL_CAFES" && (
-        <div className="no-print bg-amber-500 text-slate-950 px-3 sm:px-6 py-1.5 text-xs font-semibold flex items-center justify-between shadow-xs select-none">
-          <div className="flex items-center gap-2 truncate">
-            <span className="font-black px-1.5 py-0.5 rounded bg-slate-950 text-amber-400 text-[10px] uppercase font-mono tracking-wider">
-              HQ Admin
-            </span>
-            <span className="truncate">
-              Currently operating branch terminal for <strong>{activeCafe.cafeName}</strong> ({activeCafe.branchCode})
-            </span>
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <Link
-              href="/admin"
-              className="text-xs font-bold underline hover:text-white transition-colors"
-            >
-              &larr; Return to HQ Monitoring Panel
-            </Link>
-          </div>
-        </div>
-      )}
-
-      <header className="no-print sticky top-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 select-none shadow-xs dark:shadow-md transition-colors duration-150">
+      <header className="no-print sticky top-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-lg text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors duration-150 select-none">
         <div className="w-full px-3 sm:px-5 lg:px-6">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center h-14 gap-2">
+          <div className="grid grid-cols-[auto_1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center h-14 gap-4">
             {/* Brand Logo & Station ID - ALIGNED LEFT */}
             <div
-              className="flex items-center gap-2.5 min-w-0 justify-start"
+              className="flex items-center gap-3 min-w-0 justify-start"
               onMouseEnter={handleOtherNavMouseEnter}
             >
               <Link
-                href="/pos"
+                href={isSuperAdmin ? "/admin" : "/pos"}
                 onClick={() => setIsExpanded(false)}
-                className="flex items-center gap-2 group focus:outline-none min-w-0 flex-shrink-0"
+                className="flex items-center gap-2.5 group focus:outline-none min-w-0 flex-shrink-0"
               >
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 shadow-md group-hover:scale-105 transition-transform font-black flex-shrink-0">
-                  <Coffee className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 shadow-sm group-hover:shadow-md group-hover:-translate-y-0.5 transition-all font-black flex-shrink-0">
+                  <Coffee className="w-5 h-5 text-slate-950 stroke-[2.5]" />
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-1.5 font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate">
-                    <span className="truncate">{activeCafe ? activeCafe.cafeName : cafeName}</span>
-                    <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.2 rounded font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex-shrink-0">
-                      {activeCafe ? activeCafe.branchCode : "POS"}
+                <div className="flex flex-col min-w-0 justify-center">
+                  <div className="flex items-center gap-1.5 font-bold text-[13px] tracking-tight text-slate-900 dark:text-white truncate">
+                    <span className="truncate">
+                      {isSuperAdmin && activeCafeId === "ALL_CAFES" ? "All Branches HQ" : (activeCafe ? activeCafe.cafeName : cafeName)}
                     </span>
+                    {activeCafeId !== "ALL_CAFES" && (
+                      <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex-shrink-0 font-medium">
+                        {activeCafe ? activeCafe.branchCode : "POS"}
+                      </span>
+                    )}
                   </div>
-                  <div className="hidden xl:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 leading-none">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                    <span>{activeCafe?.location.city || "Terminal 01"} • Live</span>
-                  </div>
+                  {activeCafeId !== "ALL_CAFES" && (
+                    <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)] inline-block animate-pulse" />
+                      <span>{activeCafe?.location.city || "Terminal 01"} • Live</span>
+                    </div>
+                  )}
+                  {isSuperAdmin && activeCafeId === "ALL_CAFES" && (
+                     <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_4px_rgba(245,158,11,0.5)] inline-block animate-pulse" />
+                     <span>Monitoring {totalBranches} Branches</span>
+                   </div>
+                  )}
                 </div>
               </Link>
             </div>
 
             {/* Navigation Dock - ALIGNED CENTER (Screens & Modules) */}
-            <nav className="flex items-center justify-center">
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-inner transition-colors">
-                {/* Admin HQ Link (Prominently displayed for Super Admin!) */}
+            <nav className="hidden md:flex items-center justify-center">
+              <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-900/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 backdrop-blur-md shadow-sm transition-colors">
+                {/* Admin HQ Link (Prominently displayed for Super Admin) */}
                 {isSuperAdmin && (
                   <Link
                     href="/admin"
                     onMouseEnter={handleOtherNavMouseEnter}
-                    className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                       isActive("/admin")
-                        ? "bg-amber-600 text-white shadow-sm"
-                        : "bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                        ? "bg-amber-500 text-slate-950 shadow-sm"
+                        : "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20"
                     }`}
-                    title="Super Admin Multi-Cafe Control & Monitoring Panel"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <ShieldCheck className="w-4 h-4" />
                     <span>Admin HQ</span>
                   </Link>
                 )}
 
-                {/* POS */}
-                <Link
-                  href="/pos"
-                  onMouseEnter={handleOtherNavMouseEnter}
-                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                    isActive("/pos")
-                      ? "bg-amber-600 text-white shadow-sm"
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <Monitor className="w-3.5 h-3.5" />
-                  <span>POS</span>
-                </Link>
-
-                {/* Menu */}
-                <Link
-                  href="/menu"
-                  onMouseEnter={handleOtherNavMouseEnter}
-                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                    isActive("/menu")
-                      ? "bg-amber-600 text-white shadow-sm"
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Menu</span>
-                  <span
-                    suppressHydrationWarning
-                    className="text-[9px] px-1 py-0.2 rounded font-mono bg-slate-200 dark:bg-slate-800 text-amber-700 dark:text-amber-300 border border-slate-300 dark:border-slate-700"
-                  >
-                    {isMounted ? posItemCount : 0}
-                  </span>
-                </Link>
-
-                {/* Invoices */}
-                <Link
-                  href="/invoices"
-                  onMouseEnter={handleOtherNavMouseEnter}
-                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                    isActive("/invoices")
-                      ? "bg-amber-600 text-white shadow-sm"
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <Receipt className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Invoices</span>
-                </Link>
-
-                {/* KDS */}
-                <Link
-                  href="/kds"
-                  onMouseEnter={handleOtherNavMouseEnter}
-                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                    isActive("/kds")
-                      ? "bg-amber-600 text-white shadow-sm"
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <ChefHat className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Kitchen</span>
-                </Link>
-
-                {/* Modules Dropdown Trigger */}
-                <div
-                  className="relative"
-                  onMouseEnter={handleModulesMouseEnter}
-                  onMouseLeave={handleModulesMouseLeave}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setIsExpanded((prev) => !prev)}
-                    className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                      isExpanded
-                        ? "bg-amber-600 text-white shadow-sm"
-                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800"
-                    }`}
-                    title="Hover or click to expand all modules (Customers, Coupons, Settings, etc.)"
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Modules</span>
-                    <ChevronDown
-                      className={`w-3 h-3 transition-transform duration-200 ${
-                        isExpanded ? "rotate-180 text-white" : "text-slate-400"
+                {/* Show POS modules ONLY if a specific cafe is selected (not ALL_CAFES) */}
+                {activeCafeId !== "ALL_CAFES" && (
+                  <>
+                    {/* POS */}
+                    <Link
+                      href="/pos"
+                      onMouseEnter={handleOtherNavMouseEnter}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                        isActive("/pos")
+                          ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
                       }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Zomato Reference Orders Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsExpanded(false);
-                    setIsZomatoModalOpen(true);
-                  }}
-                  onMouseEnter={handleOtherNavMouseEnter}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 shadow-xs active:scale-95"
-                  title="Add & View Zomato Orders (Reference & Bill Tracking)"
-                >
-                  <Bike className="w-3.5 h-3.5 text-red-500" />
-                  <span>Zomato</span>
-                  {isMounted && zomatoCount > 0 && (
-                    <span
-                      suppressHydrationWarning
-                      className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 font-bold"
                     >
-                      {zomatoCount}
-                    </span>
-                  )}
-                </button>
+                      <Monitor className="w-4 h-4" />
+                      <span>POS</span>
+                    </Link>
+
+                    {/* Kitchen link removed from top-level dock. It is accessible via Modules. */}
+
+                    {/* Modules Dropdown Trigger */}
+                    <div
+                      className="relative"
+                      onMouseEnter={handleModulesMouseEnter}
+                      onMouseLeave={handleModulesMouseLeave}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setIsExpanded((prev) => !prev)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                          isExpanded
+                            ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                        }`}
+                      >
+                        <LayoutGrid className="w-4 h-4 text-amber-500" />
+                        <span>Modules</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform duration-200 ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Zomato Orders */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsExpanded(false);
+                        setIsZomatoModalOpen(true);
+                      }}
+                      onMouseEnter={handleOtherNavMouseEnter}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 shadow-sm ml-1"
+                    >
+                      <Bike className="w-4 h-4" />
+                      <span>Zomato</span>
+                      {isMounted && zomatoCount > 0 && (
+                        <span
+                          suppressHydrationWarning
+                          className="text-[9px] px-1.5 py-0.5 rounded-md font-mono bg-red-500 text-white shadow-sm"
+                        >
+                          {zomatoCount}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             </nav>
 
             {/* Status & Auth Controls - ALIGNED RIGHT */}
             <div
-              className="flex items-center justify-end gap-2 min-w-0"
+              className="flex items-center justify-end gap-3 min-w-0"
               onMouseEnter={handleOtherNavMouseEnter}
             >
               {/* Branch Switcher (for Super Admin) */}
@@ -380,43 +341,54 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => setIsBranchMenuOpen(!isBranchMenuOpen)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all shadow-xs"
-                    title="Switch Active Cafe Branch"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 transition-all"
                   >
-                    <Store className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="hidden lg:inline truncate max-w-[110px]">
-                      {activeCafe ? activeCafe.branchCode : "All Stores"}
+                    <Store className="w-4 h-4 text-amber-500" />
+                    <span className="hidden xl:inline truncate max-w-[130px]">
+                      {activeCafeId === "ALL_CAFES" ? "All Branches HQ" : activeCafe?.branchCode}
                     </span>
-                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                    <ChevronDown className="w-3 h-3 opacity-50" />
                   </button>
 
                   {isBranchMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95">
-                      <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 mb-1">
-                        Switch Store Terminal
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          switchCafe("ALL_CAFES");
-                          setIsBranchMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
-                          activeCafeId === "ALL_CAFES"
-                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
-                            : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span>👑</span>
-                          <span>All Branches (HQ Overview)</span>
+                    <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-2 pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 pl-1">
+                          Switch Branch Terminal
                         </div>
-                        {activeCafeId === "ALL_CAFES" && <Check className="w-3.5 h-3.5 text-amber-500" />}
-                      </button>
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search branches..."
+                            value={branchSearch}
+                            onChange={(e) => setBranchSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
 
-                      {allCafes
-                        .filter((c) => c.role !== "SUPER_ADMIN")
-                        .map((cafe) => (
+                      <div className="max-h-[300px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            switchCafe("ALL_CAFES");
+                            setIsBranchMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                            activeCafeId === "ALL_CAFES"
+                              ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                              : "hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-amber-500 text-lg leading-none">👑</span>
+                            <span>All Branches (HQ Overview)</span>
+                          </div>
+                          {activeCafeId === "ALL_CAFES" && <Check className="w-4 h-4 text-amber-500" />}
+                        </button>
+
+                        {filteredCafes.map((cafe) => (
                           <button
                             key={cafe.id}
                             type="button"
@@ -424,42 +396,52 @@ export default function Navbar() {
                               switchCafe(cafe.id);
                               setIsBranchMenuOpen(false);
                             }}
-                            className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                            className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
                               activeCafeId === cafe.id
-                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
-                                : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                                ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
                             }`}
                           >
-                            <div className="truncate pr-2">
-                              <div className="truncate font-bold text-slate-900 dark:text-white">
+                            <div className="truncate pr-3">
+                              <div className="truncate font-medium text-slate-900 dark:text-white">
                                 {cafe.cafeName}
                               </div>
-                              <div className="text-[10px] text-slate-400 font-mono">
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                                 {cafe.branchCode} • {cafe.location.city}
                               </div>
                             </div>
                             {activeCafeId === cafe.id && (
-                              <Check className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                              <Check className="w-4 h-4 text-amber-500 flex-shrink-0" />
                             )}
                           </button>
                         ))}
+
+                        {filteredCafes.length === 0 && (
+                          <div className="px-3 py-4 text-center text-xs text-slate-500">
+                            No branches found
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Live IST Clock (Controlled by Settings) */}
+              {/* Live IST Clock */}
               {showNavbarClock && currentTime && (
                 <div
-                  className="hidden xl:flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-900/90 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-800 font-mono shadow-xs whitespace-nowrap flex-shrink-0 animate-in fade-in duration-200"
+                  className="hidden xl:flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 font-medium font-mono px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   title="Current time (IST)"
                 >
-                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <Clock className="w-3.5 h-3.5" />
                   <span>{currentTime}</span>
                 </div>
               )}
 
-              {/* Theme Toggle (Dark / Light mode) */}
+              {/* Divider */}
+              <div className="hidden sm:block w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1" />
+
+              {/* Theme Toggle */}
               <ThemeToggle />
 
               {/* User Profile & Logout Dropdown */}
@@ -468,52 +450,66 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center gap-1.5 p-1 pl-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-all text-xs font-semibold shadow-xs"
-                    title={`Logged in as ${user.username}`}
+                    className="flex items-center gap-2 p-1 pl-2 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                   >
-                    <span className="hidden sm:inline font-mono text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[80px]">
-                      {user.username}
-                    </span>
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
-                      {user.username.slice(0, 2).toUpperCase()}
+                    <div className="hidden sm:flex flex-col items-end justify-center">
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 leading-tight">
+                        {isSuperAdmin ? "Master Admin" : (user.managerName || user.username)}
+                      </span>
+                      <span className="text-[9px] text-slate-500 dark:text-slate-400 font-medium leading-tight">
+                        {isSuperAdmin ? "Headquarters" : "Branch Manager"}
+                      </span>
+                    </div>
+                    <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center border border-slate-300 dark:border-slate-600">
+                      {isSuperAdmin ? "HQ" : (user.managerName ? user.managerName.slice(0, 2).toUpperCase() : user.username.slice(0, 2).toUpperCase())}
                     </div>
                   </button>
 
                   {isUserMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in zoom-in-95">
-                      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1.5">
-                        <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                          {user.managerName || user.username}
-                        </div>
-                        <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider mt-0.5">
-                          {user.role === "SUPER_ADMIN" ? "👑 Master Super Admin" : "☕ Branch Account"}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
-                          {user.cafeName}
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-3 py-3 border-b border-slate-100 dark:border-slate-800 mb-2 flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                           {isSuperAdmin ? "HQ" : (user.managerName ? user.managerName.slice(0, 2).toUpperCase() : user.username.slice(0, 2).toUpperCase())}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                            {isSuperAdmin ? "Master Administrator" : (user.managerName || user.username)}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${isSuperAdmin ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'}`}>
+                              {isSuperAdmin ? "👑 Super Admin" : "Branch Role"}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      {isSuperAdmin && (
+                      <div className="px-3 pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 font-medium">
+                        {isSuperAdmin ? "Global HQ Access" : (activeCafe?.cafeName || user.cafeName)}
+                      </div>
+
+                      <div className="space-y-1">
+                        {isSuperAdmin && (
+                          <Link
+                            href="/admin"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-amber-500" />
+                            <span>Admin Control Panel</span>
+                          </Link>
+                        )}
+
                         <Link
-                          href="/admin"
+                          href="/settings"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>Admin Control Panel</span>
+                          <Settings className="w-4 h-4 text-slate-400" />
+                          <span>Store Settings</span>
                         </Link>
-                      )}
+                      </div>
 
-                      <Link
-                        href="/settings"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      >
-                        <Settings className="w-3.5 h-3.5" />
-                        <span>Store Settings</span>
-                      </Link>
-
-                      <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                      <div className="my-1.5 border-t border-slate-100 dark:border-slate-800" />
 
                       <button
                         type="button"
@@ -521,9 +517,9 @@ export default function Navbar() {
                           setIsUserMenuOpen(false);
                           logout();
                         }}
-                        className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                        className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                       >
-                        <LogOut className="w-3.5 h-3.5" />
+                        <LogOut className="w-4 h-4" />
                         <span>Log Out</span>
                       </button>
                     </div>
@@ -532,7 +528,7 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/login"
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all shadow-xs"
+                  className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 font-bold text-xs transition-colors shadow-sm"
                 >
                   Sign In
                 </Link>
@@ -546,37 +542,36 @@ export default function Navbar() {
         <>
           {/* Backdrop Blur to make menu pop */}
           <div
-            className="fixed inset-0 top-14 bg-black/50 backdrop-blur-xs z-40 transition-opacity"
+            className="fixed inset-0 top-14 bg-black/20 dark:bg-black/40 backdrop-blur-sm z-40 transition-opacity"
             onClick={() => setIsExpanded(false)}
           />
 
           <div
             onMouseEnter={handleModulesMouseEnter}
             onMouseLeave={handleModulesMouseLeave}
-            className="absolute top-full left-0 right-0 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 z-50 text-slate-900 dark:text-white transition-colors"
+            className="absolute top-full left-0 right-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 z-50 text-slate-900 dark:text-white transition-colors"
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
               {/* Header Bar inside expanded deck */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-4 text-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60 mb-5 text-xs">
                 <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <LayoutGrid className="w-4 h-4 text-amber-500" />
                   <span className="uppercase tracking-widest text-[11px]">
-                    Cafe Operations &amp; Management Deck
+                    Cafe Operations & Management
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
-                  <span className="hidden sm:inline">
-                    Keyboard Shortcut: Press{" "}
-                    <kbd className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-amber-600 dark:text-amber-300">
+                <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400">
+                  <span className="hidden sm:flex items-center gap-1.5 text-[11px]">
+                    Quick Search
+                    <kbd className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold shadow-sm">
                       /
-                    </kbd>{" "}
-                    in POS for quick product search
+                    </kbd>
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsExpanded(false)}
-                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     title="Close menu (Esc)"
                   >
                     <X className="w-4 h-4" />
@@ -585,34 +580,33 @@ export default function Navbar() {
               </div>
 
               {/* 4 Categorized Modules Columns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {/* Column 1: Sales & Invoicing */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block px-1">
-                    ⚡ Sales &amp; Billing
-                  </span>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      Sales & Billing
+                    </span>
+                  </div>
 
                   <Link
                     href="/pos"
                     onClick={() => setIsExpanded(false)}
-                    className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                    className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                       isActive("/pos")
-                        ? "bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/50 shadow-sm"
-                        : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/40"
+                        ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <Monitor className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Cashier POS</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                          Press /
-                        </span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Cashier POS
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        High-speed checkout, portion sizing (Half/Full), modifiers &amp; 1-click KOT punch.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        High-speed checkout, sizing, modifiers & 1-click KOT punch.
                       </p>
                     </div>
                   </Link>
@@ -620,56 +614,52 @@ export default function Navbar() {
                   <Link
                     href="/invoices"
                     onClick={() => setIsExpanded(false)}
-                    className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                    className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                       isActive("/invoices")
-                        ? "bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/50 shadow-sm"
-                        : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/40"
+                        ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <Receipt className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Sales &amp; Receipts</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                          Register
-                        </span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Sales & Receipts
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        POS counter receipts, Dine-in &amp; Takeaway bills, Zomato reconciliation &amp; customer slips.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        Counter receipts, Dine-in & Takeaway bills.
                       </p>
                     </div>
                   </Link>
                 </div>
 
                 {/* Column 2: Kitchen & Fulfillment */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block px-1">
-                    🍳 Kitchen &amp; Fulfillment
-                  </span>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                      Kitchen & Delivery
+                    </span>
+                  </div>
 
                   <Link
                     href="/kds"
                     onClick={() => setIsExpanded(false)}
-                    className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                    className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                       isActive("/kds")
-                        ? "bg-rose-50 dark:bg-rose-500/15 border-rose-300 dark:border-rose-500/50 shadow-sm"
-                        : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-rose-400 dark:hover:border-rose-500/40"
+                        ? "bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <ChefHat className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Kitchen Display (KDS)</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
-                          Live
-                        </span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Kitchen Display (KDS)
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        Real-time order prep tickets with 10m yellow / 15m red urgency alerts.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        Real-time order prep tickets with urgency alerts.
                       </p>
                     </div>
                   </Link>
@@ -680,50 +670,50 @@ export default function Navbar() {
                       setIsExpanded(false);
                       setIsZomatoModalOpen(true);
                     }}
-                    className="w-full text-left p-3 rounded-2xl bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/40 transition-colors group cursor-pointer"
+                    className="w-full text-left p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-colors group cursor-pointer"
                   >
-                    <div className="flex items-center justify-between text-xs font-bold text-red-700 dark:text-red-300">
-                      <div className="flex items-center gap-2">
-                        <Bike className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
-                        <span>Zomato Reference &amp; Bills</span>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                        <Bike className="w-5 h-5" />
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200 font-bold">
-                        Open
-                      </span>
+                      <div>
+                        <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                          Zomato Operations
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                          Add & track Zomato items for reference and bills.
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                      Add &amp; track Zomato items for reference, bills &amp; sales reports.
-                    </p>
                   </button>
                 </div>
 
                 {/* Column 3: Dishes & Catalog */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block px-1">
-                    📋 Catalog &amp; Menu
-                  </span>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                      Catalog & Menu
+                    </span>
+                  </div>
 
                   <Link
                     href="/menu"
                     onClick={() => setIsExpanded(false)}
-                    className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                    className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                       isActive("/menu")
-                        ? "bg-indigo-50 dark:bg-indigo-500/15 border-indigo-300 dark:border-indigo-500/50 shadow-sm"
-                        : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500/40"
+                        ? "bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <Layers className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Menu Dashboard</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
-                          {posItemCount} Active
-                        </span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Menu Dashboard
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        Select POS items, configure Single vs Half/Full plate pricing, and add custom modifiers.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        Manage POS items, pricing, and custom modifiers.
                       </p>
                     </div>
                   </Link>
@@ -731,50 +721,49 @@ export default function Navbar() {
                   <Link
                     href="/menu"
                     onClick={() => setIsExpanded(false)}
-                    className="group flex items-start gap-3 p-3 rounded-2xl border bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500/40 transition-all"
+                    className="group flex items-start gap-3 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <UploadCloud className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Import / Export Menu</span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Import / Export
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        Upload CSV/JSON supplier spreadsheets or export complete menu backup in 1 click.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        Upload CSV/JSON spreadsheets or export backups.
                       </p>
                     </div>
                   </Link>
                 </div>
 
                 {/* Column 4: CRM & Store Operations */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block px-1">
-                    👥 CRM &amp; Operations
-                  </span>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                      Operations & Setup
+                    </span>
+                  </div>
 
                   {isSuperAdmin && (
                     <Link
                       href="/admin"
                       onClick={() => setIsExpanded(false)}
-                      className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                      className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                         isActive("/admin")
-                          ? "bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/50 shadow-sm"
-                          : "bg-amber-500/5 hover:bg-amber-500/10 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 border-amber-300/60 dark:border-amber-500/40"
+                          ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                       }`}
                     >
-                      <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform font-bold">
-                        <ShieldCheck className="w-5 h-5 text-amber-500" />
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform font-bold">
+                        <ShieldCheck className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 font-bold text-xs text-amber-700 dark:text-amber-300">
-                          <span>HQ Multi-Store Panel</span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-600 text-white">
-                            Master
-                          </span>
+                        <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                          HQ Multi-Store Panel
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                          Live monitoring of all branches, gross revenue, table occupancy &amp; branch creation.
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                          Live monitoring of all branches & revenue.
                         </p>
                       </div>
                     </Link>
@@ -783,21 +772,21 @@ export default function Navbar() {
                   <Link
                     href="/customers"
                     onClick={() => setIsExpanded(false)}
-                    className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                    className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                       isActive("/customers")
-                        ? "bg-purple-50 dark:bg-purple-500/15 border-purple-300 dark:border-purple-500/50 shadow-sm"
-                        : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-purple-400 dark:hover:border-purple-500/40"
+                        ? "bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-purple-500/15 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <Users className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Loyalty &amp; Customers</span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Loyalty & Customers
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        Phone lookup, loyalty cashback ledger &amp; digital WhatsApp bills.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        Phone lookup, loyalty ledger & WhatsApp bills.
                       </p>
                     </div>
                   </Link>
@@ -805,64 +794,58 @@ export default function Navbar() {
                   <Link
                     href="/coupons"
                     onClick={() => setIsExpanded(false)}
-                    className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                    className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                       isActive("/coupons")
-                        ? "bg-blue-50 dark:bg-blue-500/15 border-blue-300 dark:border-blue-500/50 shadow-sm"
-                        : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/40"
+                        ? "bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-blue-500/15 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <Tag className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Coupons &amp; Offers</span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Coupons & Offers
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        Create promo vouchers with percentage or flat rupee discounts.
-                      </p>
                     </div>
                   </Link>
 
                   <Link
                     href="/settings"
                     onClick={() => setIsExpanded(false)}
-                    className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                    className={`group flex items-start gap-3 p-3 rounded-2xl transition-all ${
                       isActive("/settings")
-                        ? "bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/50 shadow-sm"
-                        : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/40"
+                        ? "bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-600"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900/50 border border-transparent hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <Settings className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900 dark:text-white">
-                        <span>Store &amp; System Settings</span>
+                      <div className="font-bold text-[13px] text-slate-900 dark:text-white">
+                        Store Settings
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                        Cafe profile, GSTIN, Bank details, UPI QR, thermal printers &amp; data backup.
-                      </p>
                     </div>
                   </Link>
                 </div>
               </div>
 
               {/* Bottom System Banner */}
-              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 gap-2">
+              <div className="mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 gap-3">
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-slate-700 dark:text-slate-300 font-medium">Zero Cloud Lock-in Active</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-semibold">Zero Cloud Lock-in</span>
                   </span>
-                  <span>•</span>
-                  <span>Hybrid LocalStorage / PostgreSQL Ready</span>
+                  <span className="opacity-50">•</span>
+                  <span>Hybrid LocalStorage / DB Ready</span>
                 </div>
                 <div className="flex items-center gap-2 font-mono">
-                  <span className="text-slate-500 dark:text-slate-400">Currency:</span>
-                  <strong className="text-amber-600 dark:text-amber-400">INR (₹)</strong>
-                  <span>•</span>
-                  <span className="text-slate-500 dark:text-slate-400">Delivery:</span>
+                  <span className="text-slate-500">Currency:</span>
+                  <strong className="text-amber-600 dark:text-amber-400 font-sans">INR (₹)</strong>
+                  <span className="opacity-50">•</span>
+                  <span className="text-slate-500">Delivery:</span>
                   <strong className="text-red-600 dark:text-red-400 font-sans">Zomato Only</strong>
                 </div>
               </div>

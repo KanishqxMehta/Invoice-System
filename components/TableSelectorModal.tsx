@@ -31,6 +31,9 @@ interface TableSelectorModalProps {
   onOpenTableManager?: () => void;
   activeRunningOrder?: Order | null;
   onTransferTable?: (orderId: string, newTable: string) => void;
+  onMoveToTakeaway?: (orderId: string) => void;
+  initialTransferMode?: boolean;
+  onClearDraftCart?: () => void;
 }
 
 export default function TableSelectorModal({
@@ -46,21 +49,26 @@ export default function TableSelectorModal({
   onOpenTableManager,
   activeRunningOrder = null,
   onTransferTable,
+  onMoveToTakeaway,
+  initialTransferMode = false,
+  onClearDraftCart,
 }: TableSelectorModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<"ALL" | "OCCUPIED" | "VACANT">("ALL");
+  const [filterMode, setFilterMode] = useState<"ALL" | "OCCUPIED" | "VACANT" | "TAKEAWAY">("ALL");
+  const [isTransferMode, setIsTransferMode] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Focus search input when modal opens
+  // Focus search input when modal opens and sync transfer mode
   useEffect(() => {
     if (isOpen) {
+      setIsTransferMode(!!initialTransferMode);
       setSearchQuery("");
       setFilterMode("ALL");
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);
     }
-  }, [isOpen]);
+  }, [isOpen, initialTransferMode]);
 
   // Handle Escape key
   useEffect(() => {
@@ -77,11 +85,14 @@ export default function TableSelectorModal({
 
   if (!isOpen) return null;
 
-  // Map running orders by table number for instant O(1) lookup
+  // Map running orders by table number for instant O(1) lookup & collect open takeaway tabs
   const runningOrdersByTable = new Map<string, Order>();
+  const takeawayRunningOrders: Order[] = [];
   runningOrders.forEach((order) => {
     if (order.tableNumber) {
       runningOrdersByTable.set(order.tableNumber, order);
+    } else {
+      takeawayRunningOrders.push(order);
     }
   });
 
@@ -95,6 +106,7 @@ export default function TableSelectorModal({
 
     if (filterMode === "OCCUPIED" && !isOccupied) return false;
     if (filterMode === "VACANT" && isOccupied) return false;
+    if (filterMode === "TAKEAWAY") return false;
 
     if (!searchQuery.trim()) return true;
 
@@ -113,25 +125,51 @@ export default function TableSelectorModal({
   const handleChooseTable = (tbl: string) => {
     onSelectOrderType("DINE_IN");
 
+    // Explicit Transfer Mode
+    if (isTransferMode && activeRunningOrder) {
+      if (activeRunningOrder.tableNumber === tbl) {
+        setIsTransferMode(false);
+        onClose();
+        return;
+      }
+      const existingOccupied = runningOrdersByTable.get(tbl);
+      if (existingOccupied) {
+        // Cannot transfer to an already occupied table
+        return;
+      }
+      if (onTransferTable) {
+        onTransferTable(activeRunningOrder.id, tbl);
+      }
+      setIsTransferMode(false);
+      onClose();
+      return;
+    }
+
+    // Normal Navigation Mode (Default)
     const existingOrder = runningOrdersByTable.get(tbl);
     if (existingOrder) {
+      // Open / switch to existing table's tab
       onSelectTable(tbl);
       onSelectRunningOrder(existingOrder);
     } else {
-      // It's a vacant table
-      if (activeRunningOrder && onTransferTable && activeRunningOrder.tableNumber !== tbl) {
-        onTransferTable(activeRunningOrder.id, tbl);
-      } else {
-        onSelectTable(tbl);
-        onSelectRunningOrder(null);
-      }
+      // Open vacant table to start a clean new order!
+      onSelectTable(tbl);
+      onSelectRunningOrder(null);
+    }
+
+    if (onClearDraftCart) {
+      onClearDraftCart();
     }
     onClose();
   };
 
   const handleChooseTakeaway = () => {
-    onSelectOrderType("TAKEAWAY");
-    onSelectRunningOrder(null);
+    if (activeRunningOrder && onMoveToTakeaway) {
+      onMoveToTakeaway(activeRunningOrder.id);
+    } else {
+      onSelectOrderType("TAKEAWAY");
+      onSelectRunningOrder(null);
+    }
     onClose();
   };
 
@@ -240,7 +278,7 @@ export default function TableSelectorModal({
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                All ({tables.length})
+                All ({tables.length + takeawayRunningOrders.length})
               </button>
               <button
                 type="button"
@@ -266,29 +304,95 @@ export default function TableSelectorModal({
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span>Vacant ({vacantCount})</span>
               </button>
+              {takeawayRunningOrders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilterMode("TAKEAWAY")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                    filterMode === "TAKEAWAY"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "text-indigo-700 dark:text-indigo-400 hover:text-indigo-800"
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Takeaway ({takeawayRunningOrders.length})</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* RUNNING ORDER SHIFTING BANNER */}
+          {/* RUNNING ORDER CONTEXT & TRANSFER BANNER */}
           {activeRunningOrder && (
-            <div className="px-5 py-2.5 bg-amber-500/10 dark:bg-amber-950/40 border-b border-amber-300/60 dark:border-amber-700/60 flex items-center justify-between gap-3 flex-shrink-0 text-xs text-amber-900 dark:text-amber-200">
-              <div className="flex items-center gap-2 min-w-0">
-                <ArrowLeftRight className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                <span className="truncate">
-                  <strong>Moving Table {activeRunningOrder.tableNumber}</strong> (#{activeRunningOrder.orderNumber} • {formatINR(activeRunningOrder.finalTotal)}): Tap any available table below to transfer this order.
-                </span>
+            isTransferMode ? (
+              <div className="px-5 py-2.5 bg-amber-500/15 dark:bg-amber-950/60 border-b-2 border-amber-500 flex items-center justify-between gap-3 flex-shrink-0 text-xs text-amber-950 dark:text-amber-100 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ArrowLeftRight className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 animate-pulse" />
+                  <span className="truncate">
+                    {activeRunningOrder.orderType === "TAKEAWAY" || !activeRunningOrder.tableNumber ? (
+                      <>
+                        <strong>Seat Takeaway Tab:</strong> Tap any available vacant table below to assign Order <strong>#{activeRunningOrder.orderNumber}</strong> ({formatINR(activeRunningOrder.finalTotal)}).
+                      </>
+                    ) : (
+                      <>
+                        <strong>Transfer Mode Active:</strong> Tap any available vacant table below to shift Table <strong>{activeRunningOrder.tableNumber}</strong> (#{activeRunningOrder.orderNumber}).
+                      </>
+                    )}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTransferMode(false)}
+                  className="px-3 py-1 text-xs font-bold rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition-colors shadow-2xs flex-shrink-0"
+                >
+                  Cancel Transfer
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  onSelectRunningOrder(null);
-                  onSelectOrderType("DINE_IN");
-                }}
-                className="text-[11px] font-bold text-amber-800 dark:text-amber-300 hover:underline flex-shrink-0 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800"
-              >
-                Start Fresh Order Instead
-              </button>
-            </div>
+            ) : (
+              <div className="px-5 py-2 bg-slate-100/90 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 flex-shrink-0 text-xs text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2 min-w-0">
+                  {activeRunningOrder.orderType === "TAKEAWAY" || !activeRunningOrder.tableNumber ? (
+                    <>
+                      <ShoppingBag className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                      <span className="truncate">
+                        Current Tab: <strong className="text-slate-900 dark:text-white">Takeaway #{activeRunningOrder.orderNumber}</strong> ({formatINR(activeRunningOrder.finalTotal)})
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                      <span className="truncate">
+                        Current Tab: <strong className="text-slate-900 dark:text-white">Table {activeRunningOrder.tableNumber}</strong> (#{activeRunningOrder.orderNumber} • {formatINR(activeRunningOrder.finalTotal)})
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsTransferMode(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold text-xs shadow-xs transition-all"
+                    title={
+                      activeRunningOrder.orderType === "TAKEAWAY" || !activeRunningOrder.tableNumber
+                        ? "Seat this takeaway order at a dining table"
+                        : "Transfer this tab to another vacant table"
+                    }
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                    <span>{activeRunningOrder.orderType === "TAKEAWAY" || !activeRunningOrder.tableNumber ? "Assign to Table" : "Transfer Tab"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectRunningOrder(null);
+                      onSelectOrderType("DINE_IN");
+                    }}
+                    className="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:underline flex-shrink-0 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700"
+                  >
+                    Start Fresh Order
+                  </button>
+                </div>
+              </div>
+            )
           )}
 
           {/* QUICK TAKEAWAY / COUNTER OPTION BANNER */}
@@ -306,10 +410,66 @@ export default function TableSelectorModal({
                   : "bg-white dark:bg-slate-800 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/80 hover:bg-amber-100/70"
               }`}
             >
-              <span>Switch to Takeaway</span>
+              <span>{activeRunningOrder ? "Move to Takeaway" : "Switch to Takeaway"}</span>
               {orderType === "TAKEAWAY" && <Check className="w-3 h-3" />}
             </button>
           </div>
+
+          {/* OPEN TAKEAWAY TABS LIST */}
+          {takeawayRunningOrders.length > 0 && (filterMode === "ALL" || filterMode === "TAKEAWAY") && (
+            <div className="px-5 py-2.5 bg-indigo-50/50 dark:bg-indigo-950/20 border-b border-indigo-200/50 dark:border-indigo-800/40 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                  <ShoppingBag className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Open Takeaway &amp; Counter Tabs ({takeawayRunningOrders.length})</span>
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">Click tab to load into cart</span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {takeawayRunningOrders.map((order) => {
+                  const isCurrent = activeRunningOrder?.id === order.id;
+                  return (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectOrderType("TAKEAWAY");
+                        onSelectRunningOrder(order);
+                        onClose();
+                      }}
+                      className={`flex-shrink-0 px-3 py-2 rounded-xl border text-left flex items-center gap-3 transition-all ${
+                        isCurrent
+                          ? "bg-indigo-500/15 dark:bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/30 shadow-xs"
+                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-2xs"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                            #{order.orderNumber}
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+                            Takeaway
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[120px]">
+                          {order.customerName || "Counter Pickup"}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400">
+                          {formatINR(order.finalTotal)}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {order.items.reduce((s, i) => s + i.quantity, 0)} items
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* 2D TABLES GRID */}
           <div className="p-5 overflow-y-auto flex-1 min-h-[220px]">
@@ -330,14 +490,22 @@ export default function TableSelectorModal({
                 {filteredTables.map((tbl) => {
                   const running = runningOrdersByTable.get(tbl);
                   const isCurrent = orderType === "DINE_IN" && selectedTable === tbl;
+                  const isOriginTable = isTransferMode && activeRunningOrder?.tableNumber === tbl;
 
                   return (
                     <button
                       key={tbl}
                       type="button"
+                      disabled={isTransferMode && !!running && !isOriginTable}
                       onClick={() => handleChooseTable(tbl)}
                       className={`relative flex flex-col text-left p-3.5 rounded-2xl transition-all text-xs group ${
-                        isCurrent
+                        isTransferMode
+                          ? isOriginTable
+                            ? "bg-amber-500/10 dark:bg-amber-950/40 border-2 border-amber-500 ring-2 ring-amber-500/40 shadow-md cursor-default"
+                            : running
+                            ? "bg-slate-100/60 dark:bg-slate-900/40 border-2 border-slate-200 dark:border-slate-800 opacity-40 cursor-not-allowed"
+                            : "bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 border-2 border-dashed border-amber-400 dark:border-amber-600 hover:border-solid hover:border-amber-500 shadow-sm"
+                          : isCurrent
                           ? running
                             ? "bg-amber-500/10 dark:bg-amber-950/40 border-2 border-amber-500 ring-2 ring-amber-500/40 shadow-md"
                             : "bg-emerald-500/5 dark:bg-emerald-950/20 border-2 border-amber-500 ring-2 ring-amber-500/40 shadow-md"
@@ -351,10 +519,18 @@ export default function TableSelectorModal({
                         <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
                           {tbl}
                         </span>
-                        {running ? (
+                        {isOriginTable ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                            Current Tab
+                          </span>
+                        ) : running ? (
                           <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                             Occupied
+                          </span>
+                        ) : isTransferMode ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400">
+                            Target
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
@@ -364,7 +540,7 @@ export default function TableSelectorModal({
                         )}
                       </div>
 
-                      {/* Middle: Order details if occupied */}
+                      {/* Middle: Order details or action prompt */}
                       {running ? (
                         <div className="space-y-1">
                           <div className="flex items-baseline justify-between">
@@ -385,14 +561,18 @@ export default function TableSelectorModal({
                             )}
                           </div>
                         </div>
-                      ) : activeRunningOrder && activeRunningOrder.tableNumber !== tbl ? (
+                      ) : isTransferMode ? (
                         <div className="py-2 text-[11px] text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1">
-                          <ArrowLeftRight className="w-3 h-3 text-amber-600" />
-                          <span>Move Tab Here</span>
+                          <ArrowLeftRight className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
+                          <span>
+                            {activeRunningOrder?.orderType === "TAKEAWAY" || !activeRunningOrder?.tableNumber
+                              ? "Seat Tab Here"
+                              : "Move Tab Here"}
+                          </span>
                         </div>
                       ) : (
                         <div className="py-2 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                          Available for seating
+                          Available • Tap for new order
                         </div>
                       )}
                     </button>

@@ -18,6 +18,7 @@ import {
   getRunningOrders,
   getTables,
   transferRunningOrderTable,
+  convertOrderToTakeaway,
   DEFAULT_CAFE_SETTINGS,
   DEFAULT_TABLES,
 } from "@/lib/storage";
@@ -38,7 +39,11 @@ import {
   ChevronLeft,
   ChevronDown,
   SlidersHorizontal,
+  Store,
+  Shield,
+  MapPin,
 } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function PosPage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -50,13 +55,22 @@ export default function PosPage() {
   const [selectedTable, setSelectedTable] = useState<string>("T-01");
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
   const [showTableSelector, setShowTableSelector] = useState<boolean>(false);
+  const [isTableTransferMode, setIsTableTransferMode] = useState<boolean>(false);
   const [tables, setTables] = useState<string[]>(DEFAULT_TABLES);
   const [showTableManager, setShowTableManager] = useState<boolean>(false);
+
+  const handleOpenTableSelector = (isTransfer: boolean = false) => {
+    setIsTableTransferMode(isTransfer);
+    setShowTableSelector(true);
+  };
 
   // Resizable & Retractable Cart States
   const [cartWidth, setCartWidth] = useState<number>(440);
   const [isCartCollapsed, setIsCartCollapsed] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  // Auth Context
+  const { user, activeCafe, isSuperAdmin } = useAuth();
 
   const loadData = (targetOrderId?: unknown) => {
     setMenuItems(getMenuItems());
@@ -187,6 +201,17 @@ export default function PosPage() {
     const updated = transferRunningOrderTable(orderId, newTable);
     if (updated) {
       setSelectedTable(newTable);
+      setOrderType("DINE_IN");
+      setActiveRunningOrder(updated);
+      loadData();
+    }
+  };
+
+  // Convert an Active Running Order to Takeaway
+  const handleMoveToTakeaway = (orderId: string) => {
+    const updated = convertOrderToTakeaway(orderId);
+    if (updated) {
+      setOrderType("TAKEAWAY");
       setActiveRunningOrder(updated);
       loadData();
     }
@@ -220,6 +245,7 @@ export default function PosPage() {
           !e.altKey)
       ) {
         e.preventDefault();
+        setIsTableTransferMode(false);
         setShowTableSelector((prev) => !prev);
       }
     };
@@ -336,178 +362,122 @@ export default function PosPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full max-h-full min-h-0 overflow-hidden bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* TOP COMPACT ACTION BAR (Speed-first table & tab navigation) */}
-      <div className="px-3.5 py-2 bg-white dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5 flex-shrink-0 select-none shadow-xs">
-        {/* Left: Quick Actions & Table Selector Pill */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {/* New Order Button */}
-          <button
-            type="button"
-            onClick={handleStartFreshOrder}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex-shrink-0 ${
-              !activeRunningOrder && cart.length === 0
-                ? "bg-amber-600 text-white"
-                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            }`}
-            title="Start a fresh counter order or new tab"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Order</span>
-          </button>
+      {/* MAIN SCREEN SPLIT: (TOP BAR + MENU) on Left, CART on Right */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 relative">
+        
+        {/* Left: Top Action Bar & Menu Grid */}
+        <section className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
+          
+          {/* TOP COMPACT ACTION BAR */}
+          <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-shrink-0 select-none z-10 relative">
+            
+            {/* Left: Auth Context */}
+            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+              {activeCafe && (
+                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                  {isSuperAdmin ? (
+                    <Shield className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  ) : (
+                    <Store className="w-4 h-4 text-amber-500" />
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 leading-none">
+                      {activeCafe.branchCode}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-          <span className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+            {/* Right: Table Selection & Cart Toggle (when closed) */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Active Tabs */}
+              {runningOrders.length > 0 && (
+                <button
+                  onClick={() => handleOpenTableSelector(false)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 text-xs font-semibold transition-all shadow-sm flex-shrink-0"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="hidden sm:inline">{runningOrders.length} Open Tabs</span>
+                  <span className="font-mono ml-1 text-emerald-600 dark:text-emerald-300">
+                    ({formatINR(runningOrders.reduce((sum, o) => sum + o.finalTotal, 0))})
+                  </span>
+                </button>
+              )}
 
-          {/* Interactive Table Picker Pill */}
-          <button
-            type="button"
-            onClick={() => setShowTableSelector(true)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex-shrink-0 border ${
-              orderType === "TAKEAWAY"
-                ? "bg-amber-600 hover:bg-amber-500 text-white border-amber-500"
-                : activeRunningOrder
-                ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700/80 ring-1 ring-amber-400/40"
-                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
-            }`}
-            title="Click to view all tables or switch (Keyboard: T or F2)"
-          >
-            {orderType === "TAKEAWAY" ? (
-              <>
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Takeaway / Counter</span>
-              </>
-            ) : activeRunningOrder ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span className="font-mono">Table {selectedTable}</span>
-                <span className="font-mono font-bold text-[11px] text-amber-700 dark:text-amber-300">
-                  {formatINR(activeRunningOrder.finalTotal)}
-                </span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                  (#{activeRunningOrder.orderNumber})
-                </span>
-              </>
-            ) : (
-              <>
-                <Utensils className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                <span className="font-mono">Table {selectedTable}</span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                  (Available)
-                </span>
-              </>
-            )}
-            <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 ml-0.5" />
-          </button>
-
-          {/* Running Tabs Quick Counter Button */}
-          {runningOrders.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowTableSelector(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/80 font-bold text-xs transition-all shadow-xs flex-shrink-0"
-              title="View and switch between active open table tabs"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{runningOrders.length} Open Tabs</span>
-              <span className="font-mono text-[10px] text-emerald-700 dark:text-emerald-400 font-normal">
-                ({formatINR(runningOrders.reduce((sum, o) => sum + o.finalTotal, 0))})
-              </span>
-            </button>
-          )}
-
-          {/* Subtle Keyboard hint */}
-          <span className="hidden xl:inline text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-            Press <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">T</kbd> for Tables
-          </span>
-        </div>
-
-        {/* Right side: Table Management & Cart Toggle */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowTableManager(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors"
-            title="Configure, scale, or add custom dining tables"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Tables ({tables.length})</span>
-          </button>
-
-          <span className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
-
-          {/* Retractable Cart Toggle Button */}
-          <button
-            type="button"
-            onClick={handleToggleCartCollapse}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              isCartCollapsed
-                ? "bg-amber-600 text-white border-amber-600 shadow-sm"
-                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
-            }`}
-            title="Toggle cart panel visibility (Alt+C)"
-          >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            <span>{isCartCollapsed ? "Show Cart" : "Hide Cart"}</span>
-            {totalCartCount > 0 && (
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                  isCartCollapsed
-                    ? "bg-white text-amber-700"
-                    : "bg-amber-500 text-white"
+              {/* Table Picker Pill */}
+              <button
+                onClick={() => handleOpenTableSelector(false)}
+                className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm flex-shrink-0 border ${
+                  orderType === "TAKEAWAY"
+                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+                    : activeRunningOrder
+                    ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                 }`}
               >
-                {totalCartCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Dragging transparent overlay to prevent losing pointer events */}
-      {isDragging && (
-        <div className="fixed inset-0 z-50 cursor-col-resize select-none" />
-      )}
-
-      {/* MAIN SCREEN SPLIT: MENU GRID + RESIZABLE/RETRACTABLE CART */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 relative">
-        {/* Left: Menu & Category Grid */}
-        <section className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          <MenuGrid
-            menuItems={menuItems}
-            onAddToCart={handleAddToCart}
-            onRefreshMenu={loadData}
-            isLoading={!isMounted}
-          />
-
-          {/* Floating Expand Cart pill when cart is collapsed */}
-          {isCartCollapsed && (
-            <div className="absolute bottom-5 right-5 z-30 animate-in fade-in slide-in-from-right-3 duration-200">
-              <button
-                type="button"
-                onClick={handleToggleCartCollapse}
-                className="flex items-center gap-2.5 px-4 py-3 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-2xl shadow-2xl border border-amber-400/40 font-bold text-xs transition-all group"
-                title="Expand Billing Cart (Alt+C)"
-              >
-                <div className="relative">
-                  <ShoppingCart className="w-4 h-4" />
-                  {totalCartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full ring-2 ring-amber-600">
-                      {totalCartCount}
+                {orderType === "TAKEAWAY" ? (
+                  <ShoppingBag className="w-4 h-4" />
+                ) : activeRunningOrder ? (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                ) : (
+                  <MapPin className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                )}
+                
+                <div className="flex items-center gap-1.5">
+                  <span>{orderType === "TAKEAWAY" ? "Takeaway" : `Table ${selectedTable}`}</span>
+                  {activeRunningOrder && (
+                    <span className="text-[10px] font-mono ml-1 px-1.5 py-0.5 rounded text-amber-700 dark:text-amber-200 bg-amber-500/10 dark:bg-black/20">
+                      {formatINR(activeRunningOrder.finalTotal)}
+                    </span>
+                  )}
+                  {activeRunningOrder && (
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1">
+                      (#{activeRunningOrder.orderNumber})
                     </span>
                   )}
                 </div>
-                <div className="flex flex-col text-left">
-                  <span className="leading-tight">
-                    {totalCartCount > 0
-                      ? `${totalCartCount} items • ${formatINR(totalCartSubtotal)}`
-                      : "Open Cart"}
-                  </span>
-                  <span className="text-[10px] text-amber-200 font-normal">
-                    Press Alt+C to Expand ◀
-                  </span>
-                </div>
+                <ChevronDown className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100" />
               </button>
+
+              <button
+                onClick={() => setShowTableManager(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors shadow-sm"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="hidden sm:inline">Tables ({tables.length})</span>
+              </button>
+
+              {/* Show Cart Button (Only rendered when cart is collapsed) */}
+              {isCartCollapsed && (
+                <button
+                  onClick={handleToggleCartCollapse}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm border bg-amber-600 hover:bg-amber-500 text-white border-amber-500"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Show Cart</span>
+                  {totalCartCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono bg-white text-amber-600">
+                      {totalCartCount}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Grid Area */}
+          <div className="flex-1 min-h-0 relative">
+            <MenuGrid
+              menuItems={menuItems}
+              onAddToCart={handleAddToCart}
+              onRefreshMenu={loadData}
+              isLoading={!isMounted}
+            />
+          </div>
         </section>
 
         {/* Vertical Resize Divider Handle */}
@@ -523,7 +493,7 @@ export default function PosPage() {
               localStorage.setItem("pos_cart_width", "440");
             }}
           >
-            <div className="flex flex-col gap-1 items-center opacity-30 group-hover:opacity-100 transition-opacity">
+            <div className="flex flex-col gap-1.5 items-center opacity-30 group-hover:opacity-100 transition-opacity">
               <span className="w-0.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full" />
               <span className="w-0.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full" />
               <span className="w-0.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full" />
@@ -556,8 +526,10 @@ export default function PosPage() {
             onOpenTableManager={() => setShowTableManager(true)}
             orderType={orderType}
             onSelectOrderType={setOrderType}
-            onOpenTableSelector={() => setShowTableSelector(true)}
+            onOpenTableSelector={() => handleOpenTableSelector(false)}
+            onOpenTableTransfer={() => handleOpenTableSelector(true)}
             onTransferTable={handleTransferTable}
+            onMoveToTakeaway={handleMoveToTakeaway}
           />
         </section>
       </div>
@@ -565,7 +537,10 @@ export default function PosPage() {
       {/* 2D Table Floor & Quick Selector Modal */}
       <TableSelectorModal
         isOpen={showTableSelector}
-        onClose={() => setShowTableSelector(false)}
+        onClose={() => {
+          setShowTableSelector(false);
+          setIsTableTransferMode(false);
+        }}
         tables={tables}
         selectedTable={selectedTable}
         onSelectTable={setSelectedTable}
@@ -576,6 +551,9 @@ export default function PosPage() {
         onOpenTableManager={() => setShowTableManager(true)}
         activeRunningOrder={activeRunningOrder}
         onTransferTable={handleTransferTable}
+        onMoveToTakeaway={handleMoveToTakeaway}
+        initialTransferMode={isTableTransferMode}
+        onClearDraftCart={() => setCart([])}
       />
 
       {/* Table Manager Modal */}

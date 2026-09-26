@@ -66,11 +66,6 @@ export default function TableManagerModal({
 
   if (!mounted || !isOpen) return null;
 
-  const refreshTables = (newTables: string[]) => {
-    setTables(newTables);
-    if (onTablesUpdated) onTablesUpdated(newTables);
-  };
-
   const handleSetCount = (count: number) => {
     if (count < 1) return;
     if (count > 60) {
@@ -88,9 +83,8 @@ export default function TableManagerModal({
       return;
     }
 
-    const updated = setTableCount(count);
+    setTables(targetTables);
     setError(null);
-    refreshTables(updated);
   };
 
   const handleAddCustom = (e: React.FormEvent) => {
@@ -103,16 +97,28 @@ export default function TableManagerModal({
       return;
     }
 
-    const updated = addSingleTable(name);
+    setTables([...tables, name]);
     setCustomTableName("");
     setError(null);
-    refreshTables(updated);
   };
 
   const handleQuickAddNext = () => {
-    const updated = addSingleTable();
+    const defaultPrefix = "T-";
+    let maxNum = 0;
+    tables.forEach((t) => {
+      if (t.startsWith(defaultPrefix)) {
+        const numPart = t.substring(defaultPrefix.length);
+        const num = parseInt(numPart, 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    });
+    
+    const nextNum = maxNum + 1;
+    const nextName = `T-${String(nextNum).padStart(2, "0")}`;
+    setTables([...tables, nextName]);
     setError(null);
-    refreshTables(updated);
   };
 
   const handleRemove = (tbl: string) => {
@@ -127,9 +133,8 @@ export default function TableManagerModal({
       return;
     }
 
-    const updated = removeSingleTable(tbl);
+    setTables(tables.filter((t) => t !== tbl));
     setError(null);
-    refreshTables(updated);
   };
 
   const handleResetToTwelve = () => {
@@ -142,9 +147,16 @@ export default function TableManagerModal({
       return;
     }
 
-    const updated = setTableCount(12);
+    setTables(defaultTwelve);
     setError(null);
-    refreshTables(updated);
+  };
+
+  const handleSave = () => {
+    saveTables(tables);
+    if (onTablesUpdated) {
+      onTablesUpdated(tables);
+    }
+    onClose();
   };
 
   return createPortal(
@@ -296,7 +308,7 @@ export default function TableManagerModal({
               title="Add next numbered table (e.g. T-13)"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Next</span>
+              <span>Next</span>
             </button>
           </form>
 
@@ -361,7 +373,7 @@ export default function TableManagerModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleSave}
             className="px-5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl shadow-xs transition-all"
           >
             Done
