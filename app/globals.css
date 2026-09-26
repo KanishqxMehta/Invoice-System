@@ -154,22 +154,29 @@ body {
 
 .pos-adaptive-grid {
   display: grid;
-  gap: 0.75rem;
-  /* Default: exactly 3 items in a row */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  /* Default: 2 columns for narrow containers */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* When width is less, maintain minimum 2 items in row */
-@container posmenu (max-width: 680px) {
+/* 3 columns at 500px+ */
+@container posmenu (min-width: 500px) {
   .pos-adaptive-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* Default / spacious container width: exactly 3 items in row */
-@container posmenu (min-width: 681px) {
+/* 4 columns at 780px+ */
+@container posmenu (min-width: 780px) {
   .pos-adaptive-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* 5 columns at 1080px+ */
+@container posmenu (min-width: 1080px) {
+  .pos-adaptive-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
