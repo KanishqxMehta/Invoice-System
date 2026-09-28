@@ -144,7 +144,7 @@ export default function ThermalReceipt80mm({ order, settings }: Props) {
           </div>
         )}
 
-        {order.pointsDiscount > 0 && (
+        {settings.enableLoyaltyProgram !== false && order.pointsDiscount > 0 && (
           <div className="flex justify-between font-medium">
             <span>Loyalty Points ({order.pointsRedeemed} pts):</span>
             <span>-₹{order.pointsDiscount.toFixed(2)}</span>
@@ -217,7 +217,7 @@ export default function ThermalReceipt80mm({ order, settings }: Props) {
           <span>Payment Status:</span>
           <span className="font-bold">{order.paymentStatus}</span>
         </div>
-        {order.pointsEarned > 0 && (
+        {settings.enableLoyaltyProgram !== false && order.pointsEarned > 0 && (
           <div className="flex justify-between font-medium text-emerald-800">
             <span>Points Earned Today:</span>
             <span>+{order.pointsEarned} pts</span>

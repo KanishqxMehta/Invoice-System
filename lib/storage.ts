@@ -1147,6 +1147,13 @@ export function getSettings(targetCafeId?: string): CafeSettings {
     };
   }
 
+  if (base && base.enableLoyaltyProgram === undefined) {
+    base = {
+      ...base,
+      enableLoyaltyProgram: DEFAULT_CAFE_SETTINGS.enableLoyaltyProgram ?? true,
+    };
+  }
+
   // If a specific cafe is active or requested, overlay its identity details
   if (activeId && activeId !== "ALL_CAFES") {
     const cafeAccount = getCafeAccountById(activeId);

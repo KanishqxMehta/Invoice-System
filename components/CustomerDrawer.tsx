@@ -207,7 +207,7 @@ export default function CustomerDrawer({
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Customer & Loyalty</span>
+          <span>{settings?.enableLoyaltyProgram !== false ? "Customer & Loyalty" : "Customer Details"}</span>
         </div>
 
         {!customer && (
@@ -440,30 +440,32 @@ export default function CustomerDrawer({
           </div>
 
           {/* Bottom Line: Points Balance & Single Redeem Checkbox */}
-          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/70 dark:border-slate-700/60">
-            <div className="flex items-center gap-1 text-[11px]">
-              <Gift className="w-3 h-3 text-amber-500 flex-shrink-0" />
-              <span className="text-slate-500 dark:text-slate-400">Balance:</span>
-              <span className="font-bold font-mono text-amber-700 dark:text-amber-400">
-                {customer.pointsBalance} pts
-              </span>
-            </div>
-
-            {customer.pointsBalance > 0 && (
-              <label className="flex items-center gap-1.5 text-[11px] cursor-pointer select-none bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 px-2 py-0.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={redeemPointsChecked}
-                  onChange={(e) => onToggleRedeemPoints(e.target.checked)}
-                  disabled={redeemablePoints <= 0}
-                  className="rounded border-slate-300 dark:border-slate-700 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5 accent-amber-500 cursor-pointer"
-                />
-                <span className="font-medium text-amber-900 dark:text-amber-200">
-                  Redeem {redeemablePoints} pts (-{formatINR(pointsDiscountValue)})
+          {settings?.enableLoyaltyProgram !== false && (
+            <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/70 dark:border-slate-700/60">
+              <div className="flex items-center gap-1 text-[11px]">
+                <Gift className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                <span className="text-slate-500 dark:text-slate-400">Balance:</span>
+                <span className="font-bold font-mono text-amber-700 dark:text-amber-400">
+                  {customer.pointsBalance} pts
                 </span>
-              </label>
-            )}
-          </div>
+              </div>
+
+              {customer.pointsBalance > 0 && (
+                <label className="flex items-center gap-1.5 text-[11px] cursor-pointer select-none bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 px-2 py-0.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={redeemPointsChecked}
+                    onChange={(e) => onToggleRedeemPoints(e.target.checked)}
+                    disabled={redeemablePoints <= 0}
+                    className="rounded border-slate-300 dark:border-slate-700 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5 accent-amber-500 cursor-pointer"
+                  />
+                  <span className="font-medium text-amber-900 dark:text-amber-200">
+                    Redeem {redeemablePoints} pts (-{formatINR(pointsDiscountValue)})
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
         </div>
       )}
 

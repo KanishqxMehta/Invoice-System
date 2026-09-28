@@ -16,6 +16,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import ThermalReceipt80mm from "@/components/ThermalReceipt80mm";
+import WhatsAppIcon from "@/components/WhatsAppIcon";
+import { dispatchWhatsAppViaWeb, getAppBaseUrl } from "@/lib/notifications";
 
 export default function DigitalBillPage() {
   const params = useParams();
@@ -46,9 +48,19 @@ export default function DigitalBillPage() {
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const fullUrl = `${getAppBaseUrl()}/bill/${order?.id || id}`;
+    navigator.clipboard.writeText(fullUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!order) return;
+    dispatchWhatsAppViaWeb({
+      order,
+      settings,
+      baseUrl: getAppBaseUrl(),
+    });
   };
 
   const handleBack = () => {
@@ -122,6 +134,16 @@ export default function DigitalBillPage() {
           </button>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleWhatsAppShare}
+              className="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-semibold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer text-xs"
+              title="Share this receipt on WhatsApp"
+            >
+              <WhatsAppIcon className="w-3.5 h-3.5" />
+              <span>WhatsApp</span>
+            </button>
+
             <button
               type="button"
               onClick={handleCopy}
@@ -301,7 +323,7 @@ export default function DigitalBillPage() {
               </div>
             )}
 
-            {order.pointsDiscount > 0 && (
+            {settings.enableLoyaltyProgram !== false && order.pointsDiscount > 0 && (
               <div className="flex justify-between text-amber-700 font-semibold">
                 <span>Loyalty Points Redeemed ({order.pointsRedeemed} pts)</span>
                 <span className="font-mono">-{formatINR(order.pointsDiscount)}</span>
@@ -353,7 +375,7 @@ export default function DigitalBillPage() {
           </div>
 
           {/* Loyalty Points Earned Banner */}
-          {order.pointsEarned > 0 && (
+          {settings.enableLoyaltyProgram !== false && order.pointsEarned > 0 && (
             <div className="bg-amber-50 border-b border-amber-200/80 p-4 flex items-center justify-between text-amber-900">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">

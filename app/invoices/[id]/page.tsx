@@ -18,6 +18,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import WhatsAppIcon from "@/components/WhatsAppIcon";
+import { buildWhatsAppShareUrl, getAppBaseUrl } from "@/lib/notifications";
 
 export default function ViewCustomInvoicePage() {
   const params = useParams();
@@ -73,9 +75,31 @@ export default function ViewCustomInvoicePage() {
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const fullUrl = `${getAppBaseUrl()}/invoices/${invoice?.id || id}`;
+    navigator.clipboard.writeText(fullUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!invoice) return;
+    const baseUrl = getAppBaseUrl();
+    const invoiceUrl = `${baseUrl}/invoices/${invoice.id}`;
+    const lines = [
+      `🏢 *${(settings.cafeName || "CAFE").toUpperCase()}*`,
+      `Tax Invoice #${invoice.invoiceNumber}`,
+      `Client: ${invoice.customerName}`,
+      `Total Amount: ${formatINR(invoice.finalTotal)}`,
+      ``,
+      `🔗 View & Download Tax Invoice:`,
+      invoiceUrl,
+      ``,
+      `Thank you!`,
+    ];
+    const { url } = buildWhatsAppShareUrl(invoice.customerPhone, lines.join("\n"));
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   };
 
   if (!invoice) {
@@ -124,6 +148,16 @@ export default function ViewCustomInvoicePage() {
         </button>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleWhatsAppShare}
+            className="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-semibold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer text-xs"
+            title="Share this tax invoice on WhatsApp"
+          >
+            <WhatsAppIcon className="w-3.5 h-3.5" />
+            <span>WhatsApp</span>
+          </button>
+
           <button
             onClick={handleCopy}
             className="flex items-center gap-1 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-colors shadow-xs"

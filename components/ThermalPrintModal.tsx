@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Order, KOTTicket, CafeSettings } from "@/lib/types";
 import ThermalReceipt80mm from "./ThermalReceipt80mm";
 import ThermalKOT58mm from "./ThermalKOT58mm";
+import WhatsAppIcon from "./WhatsAppIcon";
+import { dispatchWhatsAppViaWeb, getAppBaseUrl } from "@/lib/notifications";
 import { Printer, X, CheckCircle2, ExternalLink, Copy, Check } from "lucide-react";
 import Link from "next/link";
 import Portal from "./Portal";
@@ -26,6 +28,12 @@ export default function ThermalPrintModal({
 }: Props) {
   const [activeTab, setActiveTab] = useState<"both" | "receipt" | "kot">("both");
   const [copied, setCopied] = useState(false);
+  const [phone, setPhone] = useState(order.customerPhone || "");
+  const [whatsappSent, setWhatsappSent] = useState(false);
+
+  useEffect(() => {
+    setPhone(order.customerPhone || "");
+  }, [order]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -47,10 +55,24 @@ export default function ThermalPrintModal({
     }, 100);
   };
 
+  const handleSendWhatsApp = () => {
+    const result = dispatchWhatsAppViaWeb({
+      order,
+      settings,
+      baseUrl: getAppBaseUrl(),
+      phoneOverride: phone,
+    });
+
+    if (result.success) {
+      setWhatsappSent(true);
+      setTimeout(() => setWhatsappSent(false), 3000);
+    }
+  };
+
   const billPath = `/bill/${order.id}`;
 
   const copyBillUrl = () => {
-    const fullUrl = `${window.location.origin}${billPath}`;
+    const fullUrl = `${getAppBaseUrl()}${billPath}`;
     navigator.clipboard.writeText(fullUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -97,7 +119,7 @@ export default function ThermalPrintModal({
                   </span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Ready for thermal printing &amp; digital customer dispatch
+                  Ready for thermal printing &amp; 1-click WhatsApp customer dispatch
                 </p>
               </div>
             </div>
@@ -146,11 +168,46 @@ export default function ThermalPrintModal({
               </button>
             </div>
 
-            {/* Print Buttons */}
-            <div className="flex items-center gap-2">
+            {/* WhatsApp 1-Click Dispatch & Print Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* WhatsApp Quick Dispatch Group */}
+              <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 shadow-2xs focus-within:ring-2 focus-within:ring-emerald-500/30 focus-within:border-emerald-500 transition-all">
+                <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mr-1.5 shrink-0" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Customer Phone"
+                  className="w-32 bg-transparent text-slate-900 dark:text-white placeholder:text-slate-400 font-mono text-xs focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer ${
+                  whatsappSent
+                    ? "bg-emerald-700 text-white"
+                    : "bg-[#25D366] hover:bg-[#20ba59] text-white"
+                }`}
+                title="Send receipt via WhatsApp Web (100% Free)"
+              >
+                {whatsappSent ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-white" />
+                    <span>Sent / Opened!</span>
+                  </>
+                ) : (
+                  <>
+                    <WhatsAppIcon className="w-3.5 h-3.5" />
+                    <span>Send WhatsApp</span>
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={() => handlePrint(activeTab)}
-                className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md transition-all active:scale-95 cursor-pointer"
+                className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>Print {activeTab === "both" ? "Both" : activeTab === "receipt" ? "80mm Receipt" : "58mm KOT"}</span>
@@ -185,7 +242,7 @@ export default function ThermalPrintModal({
             )}
           </div>
 
-          {/* Modal Footer with Digital Bill link */}
+          {/* Modal Footer with Digital Bill link & WhatsApp Shortcut */}
           <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 dark:text-slate-400">Digital Bill Link:</span>
@@ -207,6 +264,14 @@ export default function ThermalPrintModal({
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Open Bill</span>
               </Link>
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                className="text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 hover:underline font-semibold cursor-pointer ml-1"
+              >
+                <WhatsAppIcon className="w-3.5 h-3.5" />
+                <span>Send WhatsApp</span>
+              </button>
             </div>
 
             <button

@@ -11,32 +11,33 @@ import {
 } from "./types";
 
 export const DEFAULT_CAFE_SETTINGS: CafeSettings = {
-  cafeName: "Chandni Chowk Cheese Cafe",
-  tagline: "Heritage Flavours & Artisan Melts",
-  address: "Plot 14, 12th Main, 100ft Road, Indiranagar, Bengaluru, KA 560038",
-  phone: "+91 80 4910 8822",
-  email: "hello@chandnichowkcheese.in",
-  gstNumber: "29AABCR8492M1ZX",
-  fssaiNumber: "11223334000892",
-  wifiSsid: "ChandniChowkCheese_Guest",
-  wifiPass: "coffeelover2026",
-  currencySymbol: "₹",
-  taxRatePercent: 5,
-  cgstRatePercent: 2.5,
-  sgstRatePercent: 2.5,
-  pointRedeemRateInr: 1, // 1 point = ₹1
-  pointEarnRateRatio: 20, // 1 point earned per ₹20 spent
+  cafeName: process.env.NEXT_PUBLIC_CAFE_NAME || "Chandni Chowk Cheese Cafe",
+  tagline: process.env.NEXT_PUBLIC_CAFE_TAGLINE || "Heritage Flavours & Artisan Melts",
+  address: process.env.NEXT_PUBLIC_CAFE_ADDRESS || "Plot 14, 12th Main, 100ft Road, Indiranagar, Bengaluru, KA 560038",
+  phone: process.env.NEXT_PUBLIC_CAFE_PHONE || "+91 80 4910 8822",
+  email: process.env.NEXT_PUBLIC_CAFE_EMAIL || "hello@chandnichowkcheese.in",
+  gstNumber: process.env.NEXT_PUBLIC_CAFE_GSTIN || "29AABCR8492M1ZX",
+  fssaiNumber: process.env.NEXT_PUBLIC_CAFE_FSSAI || "11223334000892",
+  wifiSsid: process.env.NEXT_PUBLIC_CAFE_WIFI_SSID || "ChandniChowkCheese_Guest",
+  wifiPass: process.env.NEXT_PUBLIC_CAFE_WIFI_PASS || "coffeelover2026",
+  currencySymbol: process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "₹",
+  taxRatePercent: Number(process.env.NEXT_PUBLIC_TAX_RATE || 5),
+  cgstRatePercent: Number(process.env.NEXT_PUBLIC_CGST_RATE || 2.5),
+  sgstRatePercent: Number(process.env.NEXT_PUBLIC_SGST_RATE || 2.5),
+  enableLoyaltyProgram: process.env.NEXT_PUBLIC_ENABLE_LOYALTY_PROGRAM !== "false",
+  pointRedeemRateInr: Number(process.env.NEXT_PUBLIC_POINT_REDEEM_RATE || 1), // 1 point = ₹1
+  pointEarnRateRatio: Number(process.env.NEXT_PUBLIC_POINT_EARN_RATIO || 20), // 1 point earned per ₹20 spent
   loyaltyEarnMode: "PERCENTAGE", // Default percentage cashback in points
-  loyaltyEarnPercent: 5, // 5% of order awarded as points
-  welcomeBonusPoints: 50, // 50 bonus points on registration
-  upiId: "chandnichowkcheese@hdfcbank",
-  upiPayeeName: "Chandni Chowk Cheese Cafe",
-  bankName: "HDFC Bank Ltd, Indiranagar Branch",
-  accountNumber: "50200084920194",
-  ifscCode: "HDFC0000184",
+  loyaltyEarnPercent: Number(process.env.NEXT_PUBLIC_LOYALTY_EARN_PERCENT || 5), // 5% of order awarded as points
+  welcomeBonusPoints: Number(process.env.NEXT_PUBLIC_WELCOME_BONUS_POINTS || 50), // 50 bonus points on registration
+  upiId: process.env.NEXT_PUBLIC_CAFE_UPI_ID || "chandnichowkcheese@hdfcbank",
+  upiPayeeName: process.env.NEXT_PUBLIC_CAFE_UPI_NAME || "Chandni Chowk Cheese Cafe",
+  bankName: process.env.NEXT_PUBLIC_BANK_NAME || "HDFC Bank Ltd, Indiranagar Branch",
+  accountNumber: process.env.NEXT_PUBLIC_BANK_ACCOUNT || "50200084920194",
+  ifscCode: process.env.NEXT_PUBLIC_BANK_IFSC || "HDFC0000184",
   termsAndConditions: "1. All prices include applicable GST. 2. For corporate inquiries or party orders, contact billing@chandnichowkcheese.in. 3. Scan the UPI QR code to make instant payments.",
   showNavbarClock: false,
-  tableCount: 12,
+  tableCount: Number(process.env.NEXT_PUBLIC_TABLE_COUNT || 12),
   customTables: [
     "T-01", "T-02", "T-03", "T-04", "T-05", "T-06",
     "T-07", "T-08", "T-09", "T-10", "T-11", "T-12",

@@ -81,14 +81,17 @@ export function calculateBill(params: {
 
   // 3. Loyalty Points Redemption
   // 1 point = pointRedeemRateInr (default ₹1)
-  const maxRedeemablePoints = Math.floor(
-    remainingAfterCoupon / settings.pointRedeemRateInr
-  );
-  const eligiblePoints = Math.min(
-    pointsToRedeem,
-    customerPointsBalance,
-    maxRedeemablePoints
-  );
+  const isLoyaltyEnabled = settings.enableLoyaltyProgram !== false;
+  const maxRedeemablePoints = isLoyaltyEnabled
+    ? Math.floor(remainingAfterCoupon / settings.pointRedeemRateInr)
+    : 0;
+  const eligiblePoints = isLoyaltyEnabled
+    ? Math.min(
+        pointsToRedeem,
+        customerPointsBalance,
+        maxRedeemablePoints
+      )
+    : 0;
   const safePointsRedeemed = Math.max(0, eligiblePoints);
   const pointsDiscount = safePointsRedeemed * settings.pointRedeemRateInr;
 
@@ -107,7 +110,9 @@ export function calculateBill(params: {
 
   // 7. Points Earned on this Order (based on final spent amount)
   let pointsEarned = 0;
-  if (overridePointsEarned !== undefined && overridePointsEarned !== null) {
+  if (!isLoyaltyEnabled) {
+    pointsEarned = 0;
+  } else if (overridePointsEarned !== undefined && overridePointsEarned !== null) {
     pointsEarned = Math.max(0, Math.floor(overridePointsEarned));
   } else if (overrideLoyaltyPercent !== undefined && overrideLoyaltyPercent !== null) {
     pointsEarned = Math.max(0, Math.round((roundedFinalTotal * Math.max(0, overrideLoyaltyPercent)) / 100));

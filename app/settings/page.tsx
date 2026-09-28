@@ -24,6 +24,7 @@ import {
 import { formatINR } from "@/lib/calculator";
 import ThermalReceipt80mm from "@/components/ThermalReceipt80mm";
 import ThermalKOT58mm from "@/components/ThermalKOT58mm";
+import WhatsAppIcon from "@/components/WhatsAppIcon";
 import {
   Settings,
   Building,
@@ -40,6 +41,7 @@ import {
   Copy,
   Download,
   AlertTriangle,
+  AlertCircle,
   Wifi,
   Sparkles,
   Layers,
@@ -244,7 +246,9 @@ export default function SettingsPage() {
   };
 
   const testLoyaltyBill = parseFloat(testLoyaltyBillAmount) || 0;
-  const simulatedLoyaltyPoints = (settings.loyaltyEarnMode ?? "PERCENTAGE") === "SPEND_RATIO"
+  const simulatedLoyaltyPoints = settings.enableLoyaltyProgram === false
+    ? 0
+    : (settings.loyaltyEarnMode ?? "PERCENTAGE") === "SPEND_RATIO"
     ? (settings.pointEarnRateRatio > 0 ? Math.floor(testLoyaltyBill / settings.pointEarnRateRatio) : 0)
     : Math.round((testLoyaltyBill * (settings.loyaltyEarnPercent ?? 5)) / 100);
   const simulatedLoyaltyCashbackInr = simulatedLoyaltyPoints * (settings.pointRedeemRateInr || 1);
@@ -935,7 +939,73 @@ export default function SettingsPage() {
             {/* ---------------- TAB 3: LOYALTY & REWARDS PROGRAM ---------------- */}
             {activeTab === "loyalty" && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Master Loyalty Toggle Card */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                        <Gift className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                            Enable Loyalty &amp; Rewards Program
+                          </h3>
+                          <span
+                            className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border transition-colors ${
+                              settings.enableLoyaltyProgram !== false
+                                ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700"
+                            }`}
+                          >
+                            {settings.enableLoyaltyProgram !== false ? "Active & Enabled" : "Disabled / Paused"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          {settings.enableLoyaltyProgram !== false
+                            ? "Customers earn loyalty points on orders and can redeem their balance for bill discounts. Active across POS cart, receipts, and invoices."
+                            : "Loyalty points system is completely turned off. Point earning and redemptions are paused, and loyalty badges are hidden from POS and receipts."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 self-end sm:self-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.enableLoyaltyProgram !== false}
+                        onChange={(e) => {
+                          const updated = {
+                            ...settings,
+                            enableLoyaltyProgram: e.target.checked,
+                          };
+                          setSettings(updated);
+                          saveSettings(updated);
+                          window.dispatchEvent(new Event("storage"));
+                          showToast(
+                            e.target.checked
+                              ? "Loyalty program enabled across POS & receipts."
+                              : "Loyalty program disabled. Point earning and redemption paused."
+                          );
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-600"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {settings.enableLoyaltyProgram === false && (
+                  <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <span>
+                        The loyalty program is currently <strong>disabled</strong>. Toggle the switch above to re-activate points earning, customer balance redemption, and rewards.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 transition-opacity ${settings.enableLoyaltyProgram === false ? "opacity-60 pointer-events-none" : ""}`}>
                   {/* Left Column: Form Fields */}
                   <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs">
                     <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-5">
@@ -1447,15 +1517,35 @@ export default function SettingsPage() {
             {/* ---------------- TAB 5: WHATSAPP NOTIFICATIONS ---------------- */}
             {activeTab === "notifications" && (
               <div className="space-y-6 animate-in fade-in duration-200">
+                {/* 1-Click WhatsApp Info Banner */}
+                <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                      <WhatsAppIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-950 dark:text-emerald-100 flex items-center gap-2">
+                        <span>1-Click Screen WhatsApp Integration Active</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 font-bold uppercase tracking-wider">
+                          100% Free
+                        </span>
+                      </h4>
+                      <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80 mt-1 max-w-2xl">
+                        Cashiers can dispatch formatted digital invoices with one click via <strong>wa.me/</strong> directly from the POS completion modal and the Sales Register. Zero API costs, zero Meta verification, and instant pre-filled receipts.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800 mb-5">
                     <div>
                       <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                        <Send className="w-4 h-4 text-emerald-400" />
-                        <span>WhatsApp Cloud API Dispatch Logs</span>
+                        <WhatsAppIcon className="w-4 h-4 text-emerald-500" />
+                        <span>WhatsApp Digital Invoice Dispatch Logs</span>
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        Live audit of asynchronous digital receipt jobs enqueued on checkout
+                        Live audit of digital receipt jobs dispatched via 1-click WhatsApp Web and checkout
                       </p>
                     </div>
 

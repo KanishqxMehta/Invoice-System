@@ -24,6 +24,8 @@ import Link from "next/link";
 import ThermalReceipt80mm from "@/components/ThermalReceipt80mm";
 import ConfirmModal from "@/components/ConfirmModal";
 import Portal from "@/components/Portal";
+import WhatsAppIcon from "@/components/WhatsAppIcon";
+import { dispatchWhatsAppViaWeb, getAppBaseUrl } from "@/lib/notifications";
 
 export default function InvoicesAndSalesPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -95,7 +97,7 @@ export default function InvoicesAndSalesPage() {
 
   const handleShare = () => {
     if (!previewOrder) return;
-    const url = `${window.location.origin}/bill/${previewOrder.id}`;
+    const url = `${getAppBaseUrl()}/bill/${previewOrder.id}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -103,6 +105,40 @@ export default function InvoicesAndSalesPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [previewPhone, setPreviewPhone] = useState("");
+  const [modalWhatsappSent, setModalWhatsappSent] = useState(false);
+
+  useEffect(() => {
+    setPreviewPhone(previewOrder?.customerPhone || "");
+    setModalWhatsappSent(false);
+  }, [previewOrder]);
+
+  const handleSendWhatsAppReceipt = (order: Order, phoneOverride?: string) => {
+    const targetPhone =
+      phoneOverride !== undefined
+        ? phoneOverride
+        : order.customerPhone || "";
+
+    const result = dispatchWhatsAppViaWeb({
+      order,
+      settings,
+      baseUrl: getAppBaseUrl(),
+      phoneOverride: targetPhone,
+    });
+
+    if (result.success) {
+      setToastMessage(
+        `✓ WhatsApp bill opened for #${order.orderNumber} ${
+          result.cleanPhone ? `(+${result.cleanPhone})` : ""
+        }`
+      );
+      setTimeout(() => setToastMessage(null), 3500);
+      return true;
+    }
+    return false;
   };
 
   // Filtered Orders / Receipts
@@ -160,6 +196,12 @@ export default function InvoicesAndSalesPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {toastMessage && (
+            <div className="fixed top-5 right-5 z-[150] bg-emerald-700 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-semibold animate-in slide-in-from-top-3 duration-200">
+              <WhatsAppIcon className="w-4 h-4 text-white" />
+              <span>{toastMessage}</span>
+            </div>
+          )}
           <Link
             href="/pos"
             className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition-all shadow-xs"
@@ -413,6 +455,28 @@ export default function InvoicesAndSalesPage() {
 
                         <td className="px-5 py-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* 1-Click WhatsApp Send Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (ord.customerPhone) {
+                                  handleSendWhatsAppReceipt(ord);
+                                } else {
+                                  setPreviewOrder(ord);
+                                  setModalViewMode("printed");
+                                }
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800/80 transition-colors shadow-2xs cursor-pointer"
+                              title={
+                                ord.customerPhone
+                                  ? `Send receipt via WhatsApp to ${ord.customerPhone}`
+                                  : "Open preview to add phone & send WhatsApp"
+                              }
+                            >
+                              <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span className="hidden sm:inline">WhatsApp</span>
+                            </button>
+
                             {/* Preview Modal Button (Open modal with print and share) */}
                             <button
                               type="button"
@@ -478,8 +542,49 @@ export default function InvoicesAndSalesPage() {
                 </div>
               </div>
 
-              {/* Share, Print & Close Actions */}
-              <div className="flex items-center gap-2">
+              {/* Share, WhatsApp, Print & Close Actions */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* WhatsApp Quick Dispatch */}
+                <div className="hidden sm:flex items-center bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs focus-within:ring-2 focus-within:ring-emerald-500/30 focus-within:border-emerald-500 transition-all">
+                  <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mr-1 shrink-0" />
+                  <input
+                    type="tel"
+                    value={previewPhone}
+                    onChange={(e) => setPreviewPhone(e.target.value)}
+                    placeholder="Phone #"
+                    className="w-24 sm:w-28 bg-transparent text-slate-900 dark:text-white placeholder:text-slate-400 font-mono text-xs focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ok = handleSendWhatsAppReceipt(previewOrder, previewPhone);
+                    if (ok) {
+                      setModalWhatsappSent(true);
+                      setTimeout(() => setModalWhatsappSent(false), 3000);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer ${
+                    modalWhatsappSent
+                      ? "bg-emerald-700 text-white"
+                      : "bg-[#25D366] hover:bg-[#20ba59] text-white"
+                  }`}
+                  title="Send receipt via WhatsApp Web (100% Free)"
+                >
+                  {modalWhatsappSent ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>Sent!</span>
+                    </>
+                  ) : (
+                    <>
+                      <WhatsAppIcon className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   onClick={handleShare}

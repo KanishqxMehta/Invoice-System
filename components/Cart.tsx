@@ -23,7 +23,7 @@ import {
   getTables,
   DEFAULT_TABLES,
 } from "@/lib/storage";
-import { dispatchDigitalReceiptNotification } from "@/lib/notifications";
+import { dispatchDigitalReceiptNotification, getAppBaseUrl } from "@/lib/notifications";
 import CustomerDrawer from "./CustomerDrawer";
 import CouponInput from "./CouponInput";
 import Numpad from "./Numpad";
@@ -408,7 +408,7 @@ export default function Cart({
     });
 
     if (result) {
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+      const baseUrl = getAppBaseUrl();
       dispatchDigitalReceiptNotification({
         order: result.order,
         customer: result.customer || customer,
@@ -472,7 +472,7 @@ export default function Cart({
       })),
     });
 
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const baseUrl = getAppBaseUrl();
     dispatchDigitalReceiptNotification({
       order: result.order,
       customer: result.customer || customer,
@@ -1115,7 +1115,7 @@ export default function Cart({
         </div>
 
         {/* Cashier Loyalty Points Award Controller - Sleek 1-Line Row */}
-        {customer && (
+        {customer && settings.enableLoyaltyProgram !== false && (
           <div className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-300 truncate">
               <Gift className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />

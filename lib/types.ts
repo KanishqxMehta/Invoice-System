@@ -197,6 +197,7 @@ export interface CafeSettings {
   taxRatePercent: number; // Default 5%
   cgstRatePercent: number; // 2.5%
   sgstRatePercent: number; // 2.5%
+  enableLoyaltyProgram?: boolean; // Default true - controls whether loyalty points system is active
   pointRedeemRateInr: number; // 1 point = ₹1.00
   pointEarnRateRatio: number; // 1 point per ₹20 spent
   loyaltyEarnMode?: "PERCENTAGE" | "SPEND_RATIO"; // Default "PERCENTAGE"
