@@ -53,6 +53,7 @@ export default function AdminDashboardPage() {
   const { user, isSuperAdmin, switchCafe, refreshAuth } = useAuth();
 
   // ─── Core State ───
+  const [isMounted, setIsMounted] = useState(false);
   const [branches, setBranches] = useState<CafeAccount[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("ALL");
@@ -71,17 +72,24 @@ export default function AdminDashboardPage() {
   // ─── Activity Feed Filter ───
   const [feedBranchFilter, setFeedBranchFilter] = useState("ALL");
 
-  // ─── Data Loading ───
+  // ─── Orders & KOTs stored in state to avoid SSR/client localStorage mismatch ───
+  const [allOrders, setAllOrders] = useState<ReturnType<typeof getAllOrdersRaw>>([]);
+  const [allKots, setAllKots] = useState<ReturnType<typeof getAllKOTTicketsRaw>>([]);
+
+  // ─── Data Loading (only runs client-side after mount) ───
   const loadData = useCallback(() => {
     setIsRefreshing(true);
     try {
       setBranches(getOnlyCafeBranches());
+      setAllOrders(getAllOrdersRaw());
+      setAllKots(getAllKOTTicketsRaw());
     } finally {
       setTimeout(() => setIsRefreshing(false), 400);
     }
   }, []);
 
   useEffect(() => {
+    setIsMounted(true);
     loadData();
     window.addEventListener("storage", loadData);
     window.addEventListener("auth-changed", loadData);
@@ -109,9 +117,7 @@ export default function AdminDashboardPage() {
     setTimeout(() => setActionSuccessMsg(null), 4000);
   };
 
-  // ─── Computed: Network KPIs ───
-  const allOrders = getAllOrdersRaw();
-  const allKots = getAllKOTTicketsRaw();
+  // ─── Computed: Network KPIs (safe — allOrders/allKots are [] until mounted) ───
   const totalNetworkSales = allOrders
     .filter((o) => o.paymentStatus === "PAID" || !o.paymentStatus)
     .reduce((sum, o) => sum + (o.finalTotal || 0), 0);
